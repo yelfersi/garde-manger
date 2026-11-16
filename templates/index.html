@@ -285,7 +285,7 @@ async function aiSortShopping() {
         const getLocalCategory = (name) => {
             const n = name.toLowerCase();
             if (['avocat', 'tomate', 'pomme', 'banane', 'salade', 'carotte', 'oignon', 'citron', 'concombre', 'courgette'].some(w => n.includes(w))) return '🍎 Fruits & Légumes';
-            if (['lait', cottage','beurre', 'fromage', 'yaourt', 'crème', 'œufs', 'oeuf', 'mozzarella'].some(w => n.includes(w))) return '🧀 Produits Frais & Laitiers';
+            if (['lait', 'cottage','beurre', 'fromage', 'yaourt', 'crème', 'œufs', 'oeuf', 'mozzarella'].some(w => n.includes(w))) return '🧀 Produits Frais & Laitiers';
             if (['viande', 'poulet', 'bœuf', 'steak', 'jambon', 'poisson', 'saumon'].some(w => n.includes(w))) return '🥩 Boucherie & Poissonnerie';
             if (['moutarde','pâtes', 'riz', 'farine', 'sucre', 'huile', 'cracottes', 'crackers', 'conserve', 'sauce', 'café', 'thé', 'chocolat', 'gâteau', 'pain'].some(w => n.includes(w))) return '🥫 Épicerie & Sec';
             if (['papier', 'savon', 'shampoing', 'lessive', 'dentifrice', 'éponge', 'sac'].some(w => n.includes(w))) return '🧻 Hygiène & Entretien';
