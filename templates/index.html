@@ -129,8 +129,141 @@
     </div>
 </div>
 
+<!-- Modal d'édition unique -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Modifier l'élément</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modal-edit-id">
+                <input type="hidden" id="modal-edit-type">
+                
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Nom</label>
+                    <input type="text" id="modal-edit-name" class="form-control">
+                </div>
+                <div class="mb-3" id="field-qty-container">
+                    <label class="form-label text-muted small">Quantité</label>
+                    <input type="text" id="modal-edit-qty" class="form-control">
+                </div>
+                <div class="mb-3" id="field-extra-container">
+                    <label class="form-label text-muted small" id="label-extra">Prix ₪</label>
+                    <input type="text" id="modal-edit-extra" class="form-control">
+                </div>
+                <div class="mb-3" id="field-date-container" style="display:none;">
+                    <label class="form-label text-muted small">Date</label>
+                    <input type="date" id="modal-edit-date" class="form-control">
+                </div>
+                <div class="mb-3" id="field-loc-container" style="display:none;">
+                    <label class="form-label text-muted small">Emplacement</label>
+                    <select id="modal-edit-loc" class="form-select">
+                        <option value="Frigo">🧊 Frigo</option>
+                        <option value="Congélateur">❄️ Congélateur</option>
+                        <option value="Placard">🥫 Placard</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-success" onclick="saveModalChanges()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+
+    function openEditModal(type, id, name, extra1, extra2, extra3) {
+        document.getElementById('modal-edit-type').value = type;
+        document.getElementById('modal-edit-id').value = id;
+        document.getElementById('modal-edit-name').value = name;
+        
+        const qtyContainer = document.getElementById('field-qty-container');
+        const extraContainer = document.getElementById('field-extra-container');
+        const dateContainer = document.getElementById('field-date-container');
+        const locContainer = document.getElementById('field-loc-container');
+        
+        qtyContainer.style.display = 'block';
+        extraContainer.style.display = 'block';
+        dateContainer.style.display = 'none';
+        locContainer.style.display = 'none';
+
+        if (type === 'shopping') {
+            document.getElementById('label-extra').innerText = 'Prix estimé (₪)';
+            document.getElementById('modal-edit-qty').value = extra1;
+            document.getElementById('modal-edit-extra').value = extra2;
+        } else if (type === 'inventory') {
+            qtyContainer.style.display = 'block';
+            extraContainer.style.display = 'none';
+            dateContainer.style.display = 'block';
+            locContainer.style.display = 'block';
+            document.getElementById('modal-edit-qty').value = extra1;
+            document.getElementById('modal-edit-loc').value = extra2;
+            document.getElementById('modal-edit-date').value = extra3;
+        } else if (type === 'expense') {
+            qtyContainer.style.display = 'none';
+            document.getElementById('label-extra').innerText = 'Montant (₪)';
+            document.getElementById('modal-edit-extra').value = extra1;
+            dateContainer.style.display = 'block';
+            document.getElementById('modal-edit-date').value = extra2;
+        }
+        
+        editModal.show();
+    }
+
+    async function saveModalChanges() {
+        const type = document.getElementById('modal-edit-type').value;
+        const id = document.getElementById('modal-edit-id').value;
+        const name = document.getElementById('modal-edit-name').value;
+        
+        let url = '';
+        let bodyData = {};
+
+        if (type === 'shopping') {
+            url = `/api/shopping/${id}`;
+            bodyData = {
+                name: name,
+                quantity: document.getElementById('modal-edit-qty').value,
+                estimated_price: document.getElementById('modal-edit-extra').value,
+                bought: false
+            };
+        } else if (type === 'inventory') {
+            url = `/api/inventory/${id}`;
+            bodyData = {
+                name: name,
+                quantity: document.getElementById('modal-edit-qty').value,
+                location: document.getElementById('modal-edit-loc').value,
+                expiry_date: document.getElementById('modal-edit-date').value
+            };
+        } else if (type === 'expense') {
+            url = `/api/expenses/${id}`;
+            bodyData = {
+                description: name,
+                amount: document.getElementById('modal-edit-extra').value,
+                date: document.getElementById('modal-edit-date').value
+            };
+        }
+
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(bodyData)
+        });
+
+        if (response.ok) {
+            editModal.hide();
+            // Rechargement immédiat de la liste correspondante
+            if (type === 'shopping') loadShopping();
+            if (type === 'inventory') loadInventory();
+            if (type === 'expense') loadExpenses();
+        }
+    }
+
     // --- COURSES ---
     async function loadShopping() {
         const res = await fetch('/api/shopping');
@@ -143,7 +276,6 @@
             if (!item.bought) total += item.estimated_price;
             const li = document.createElement('li');
             li.className = 'list-group-item d-flex justify-content-between align-items-center';
-            li.id = `shop-row-${item.id}`;
             li.innerHTML = `
                 <div class="form-check d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" ${item.bought ? 'checked' : ''} onchange="toggleBought(${item.id}, this.checked)">
@@ -153,40 +285,13 @@
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     <span class="badge bg-light text-dark">${item.estimated_price.toFixed(2)} ₪</span>
-                    <button class="btn btn-sm btn-outline-primary" onclick="editShopping(${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}', ${item.estimated_price})">Modifier</button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openEditModal('shopping', ${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}', ${item.estimated_price})">Modifier</button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteShopping(${item.id})">✕</button>
                 </div>
             `;
             list.appendChild(li);
         });
         document.getElementById('total-estimated').innerText = total.toFixed(2) + ' ₪';
-    }
-
-    function editShopping(id, name, quantity, price) {
-        const row = document.getElementById(`shop-row-${id}`);
-        row.innerHTML = `
-            <div class="d-flex gap-2 w-100 align-items-center py-1">
-                <input type="text" id="edit-shop-name-${id}" class="form-control form-control-sm" value="${name}">
-                <input type="text" id="edit-shop-qty-${id}" class="form-control form-control-sm" style="width: 90px;" value="${quantity}">
-                <input type="number" step="0.01" id="edit-shop-price-${id}" class="form-control form-control-sm" style="width: 90px;" value="${price}">
-                <button class="btn btn-sm btn-success" onclick="saveShopping(${id})">OK</button>
-                <button class="btn btn-sm btn-secondary" onclick="loadShopping()">Annuler</button>
-            </div>
-        `;
-    }
-
-    async function saveShopping(id) {
-        await fetch(`/api/shopping/${id}`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                name: document.getElementById(`edit-shop-name-${id}`).value,
-                quantity: document.getElementById(`edit-shop-qty-${id}`).value,
-                estimated_price: document.getElementById(`edit-shop-price-${id}`).value,
-                bought: false
-            })
-        });
-        loadShopping();
     }
 
     document.getElementById('form-shopping').addEventListener('submit', async (e) => {
@@ -232,7 +337,6 @@
 
             const card = document.createElement('div');
             card.className = 'card p-2 mb-2 d-flex flex-row justify-content-between align-items-center';
-            card.id = `inv-row-${item.id}`;
             card.innerHTML = `
                 <div>
                     <span class="badge ${badgeClass} me-2">${item.location}</span>
@@ -240,44 +344,12 @@
                     ${item.expiry_date ? `<small class="text-muted d-block ms-1">Péremption : ${item.expiry_date}</small>` : ''}
                 </div>
                 <div class="d-flex gap-1">
-                    <button class="btn btn-sm btn-outline-primary" onclick="editInventory(${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}', '${item.location}', '${item.expiry_date || ''}')">Modifier</button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openEditModal('inventory', ${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}', '${item.location}', '${item.expiry_date || ''}')">Modifier</button>
                     <button class="btn btn-sm btn-outline-warning text-dark fw-semibold" onclick="finishInventory(${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}')">Fini</button>
                 </div>
             `;
             container.appendChild(card);
         });
-    }
-
-    function editInventory(id, name, quantity, location, expiryDate) {
-        const card = document.getElementById(`inv-row-${id}`);
-        card.innerHTML = `
-            <div class="d-flex gap-2 w-100 align-items-center flex-wrap py-1">
-                <input type="text" id="edit-inv-name-${id}" class="form-control form-control-sm" style="width: 150px;" value="${name}">
-                <input type="text" id="edit-inv-qty-${id}" class="form-control form-control-sm" style="width: 80px;" value="${quantity}">
-                <select id="edit-inv-loc-${id}" class="form-select form-select-sm" style="width: 120px;">
-                    <option value="Frigo" ${location === 'Frigo' ? 'selected' : ''}>🧊 Frigo</option>
-                    <option value="Congélateur" ${location === 'Congélateur' ? 'selected' : ''}>❄️ Congel</option>
-                    <option value="Placard" ${location === 'Placard' ? 'selected' : ''}>🥫 Placard</option>
-                </select>
-                <input type="date" id="edit-inv-date-${id}" class="form-control form-control-sm" style="width: 130px;" value="${expiryDate}">
-                <button class="btn btn-sm btn-success" onclick="saveInventory(${id})">OK</button>
-                <button class="btn btn-sm btn-secondary" onclick="loadInventory()">Annuler</button>
-            </div>
-        `;
-    }
-
-    async function saveInventory(id) {
-        await fetch(`/api/inventory/${id}`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                name: document.getElementById(`edit-inv-name-${id}`).value,
-                quantity: document.getElementById(`edit-inv-qty-${id}`).value,
-                location: document.getElementById(`edit-inv-loc-${id}`).value,
-                expiry_date: document.getElementById(`edit-inv-date-${id}`).value
-            })
-        });
-        loadInventory();
     }
 
     document.getElementById('form-inventory').addEventListener('submit', async (e) => {
@@ -326,7 +398,6 @@
             }
             const li = document.createElement('li');
             li.className = 'list-group-item d-flex justify-content-between align-items-center';
-            li.id = `exp-row-${item.id}`;
             li.innerHTML = `
                 <div>
                     <strong>${item.description}</strong>
@@ -334,39 +405,13 @@
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     <span class="fw-bold">${item.amount.toFixed(2)} ₪</span>
-                    <button class="btn btn-sm btn-outline-primary" onclick="editExpense(${item.id}, '${item.description.replace(/'/g, "\\'")}', ${item.amount}, '${item.date}')">Modifier</button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openEditModal('expense', ${item.id}, '${item.description.replace(/'/g, "\\'")}', ${item.amount}, '${item.date}')">Modifier</button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteExpense(${item.id})">✕</button>
                 </div>
             `;
             list.appendChild(li);
         });
         document.getElementById('monthly-total').innerText = monthlyTotal.toFixed(2) + ' ₪';
-    }
-
-    function editExpense(id, desc, amount, date) {
-        const row = document.getElementById(`exp-row-${id}`);
-        row.innerHTML = `
-            <div class="d-flex gap-2 w-100 align-items-center py-1">
-                <input type="text" id="edit-exp-desc-${id}" class="form-control form-control-sm" value="${desc}">
-                <input type="number" step="0.01" id="edit-exp-amount-${id}" class="form-control form-control-sm" style="width: 90px;" value="${amount}">
-                <input type="date" id="edit-exp-date-${id}" class="form-control form-control-sm" style="width: 130px;" value="${date}">
-                <button class="btn btn-sm btn-success" onclick="saveExpense(${id})">OK</button>
-                <button class="btn btn-sm btn-secondary" onclick="loadExpenses()">Annuler</button>
-            </div>
-        `;
-    }
-
-    async function saveExpense(id) {
-        await fetch(`/api/expenses/${id}`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                description: document.getElementById(`edit-exp-desc-${id}`).value,
-                amount: document.getElementById(`edit-exp-amount-${id}`).value,
-                date: document.getElementById(`edit-exp-date-${id}`).value
-            })
-        });
-        loadExpenses();
     }
 
     document.getElementById('form-expense').addEventListener('submit', async (e) => {
