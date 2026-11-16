@@ -1,0 +1,224 @@
+import os
+import psycopg2
+import psycopg2.extras
+from datetime import datetime
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
+from authlib.integrations.flask_client import OAuth
+
+app = Flask(__name__)
+# Clé secrète pour sécuriser les sessions utilisateur (change-la par une chaîne aléatoire en production)
+app.secret_key = os.environ.get('SECRET_KEY', 'une_cle_secrete_tres_seure')
+
+# Configuration OAuth Google (récupéré via les variables d'environnement ou à configurer)
+GOOGLE_CLIENT_ID = "653413031213-dpluue7mtvbhjc7mocckq37hlpjo01td.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET = "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"
+
+oauth = OAuth(app)
+google = oauth.register(
+    name='google',
+    client_id=GOOGLE_CLIENT_ID,
+    client_secret=GOOGLE_CLIENT_SECRET,
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
+
+# URL de connexion PostgreSQL (fournie par Supabase)
+DATABASE_URL = "postgresql://postgres.xjaxuswcvtbwynhajmez:kawXP90LWa4FE7zz@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres"
+
+def get_db_connection():
+    # Connexion à PostgreSQL
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+    return conn
+
+def init_db():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Table liste de courses
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS shopping_list (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            quantity TEXT,
+            estimated_price REAL DEFAULT 0.0,
+            bought INTEGER DEFAULT 0
+        )
+    """)
+    # Table inventaire (Frigo, Congélateur, Placard)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS inventory (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            quantity TEXT,
+            location TEXT NOT NULL,
+            expiry_date TEXT
+        )
+    """)
+    # Table budget
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS expenses (
+            id SERIAL PRIMARY KEY,
+            description TEXT NOT NULL,
+            amount REAL NOT NULL,
+            date TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+# --- GESTION DE LA SÉCURITÉ (AUTHENTIFICATION) ---
+@app.before_request
+def require_login():
+    # Autoriser les routes de connexion, les fichiers statiques et l'API publique si besoin
+    allowed_routes = ['login', 'auth_google', 'auth_callback', 'static']
+    if request.endpoint not in allowed_routes and 'user' not in session:
+        return redirect(url_for('login'))
+
+@app.route('/login')
+def login():
+    return render_template('login.html')
+
+@app.route('/auth/google')
+def auth_google():
+    redirect_uri = url_for('auth_callback', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route('/auth/callback')
+def auth_callback():
+  token = google.authorize_access_token()
+  user_info = token.get('userinfo')
+  email = user_info.get('email')
+
+  # --- LISTE DES PERSONNES AUTORISÉES ---
+  utilisateurs_autorises = [
+      'yelfersi@gmail.com',
+      'e.0548041564@gmail.com',
+  ]
+
+  # Si l'e-mail n'est pas autorisé, on retourne un message clair (et non rien du tout)
+  if email not in utilisateurs_autorises:
+    return (
+        f"Accès refusé ({email}) : tu n'as pas l'autorisation d'accéder à ce"
+        ' garde-manger.',
+        403,
+    )
+
+  session['user'] = user_info
+  return redirect(url_for('index'))
+
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    return redirect(url_for('login'))
+
+
+# --- ROUTES PRINCIPALES ---
+@app.route('/')
+def index():
+    return render_template('index.html', user=session.get('user'))
+
+# --- API : LISTE DE COURSES ---
+@app.route('/api/shopping', methods=['GET', 'POST'])
+def handle_shopping():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if request.method == 'POST':
+        data = request.json
+        cursor.execute(
+            'INSERT INTO shopping_list (name, quantity, estimated_price) VALUES (%s, %s, %s)',
+            (data.get('name', ''), data.get('quantity', ''), float(data.get('estimated_price') or 0))
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'success'})
+    else:
+        cursor.execute('SELECT * FROM shopping_list ORDER BY bought ASC, id DESC')
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return jsonify([dict(row) for row in rows])
+
+@app.route('/api/shopping/<int:item_id>', methods=['PUT', 'DELETE'])
+def update_shopping(item_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if request.method == 'PUT':
+        data = request.json
+        cursor.execute('UPDATE shopping_list SET bought = %s WHERE id = %s', (1 if data['bought'] else 0, item_id))
+    elif request.method == 'DELETE':
+        cursor.execute('DELETE FROM shopping_list WHERE id = %s', (item_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'status': 'success'})
+
+# --- API : INVENTAIRE ---
+@app.route('/api/inventory', methods=['GET', 'POST'])
+def handle_inventory():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if request.method == 'POST':
+        data = request.json
+        cursor.execute(
+            'INSERT INTO inventory (name, quantity, location, expiry_date) VALUES (%s, %s, %s, %s)',
+            (data.get('name', ''), data.get('quantity', ''), data.get('location', 'Frigo'), data.get('expiry_date', ''))
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'success'})
+    else:
+        cursor.execute('SELECT * FROM inventory ORDER BY location, id DESC')
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return jsonify([dict(row) for row in rows])
+
+@app.route('/api/inventory/<int:item_id>', methods=['DELETE'])
+def delete_inventory(item_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM inventory WHERE id = %s', (item_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'status': 'success'})
+
+# --- API : BUDGET ---
+@app.route('/api/expenses', methods=['GET', 'POST'])
+def handle_expenses():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if request.method == 'POST':
+        data = request.json
+        date_str = data.get('date') or datetime.now().strftime('%Y-%m-%d')
+        cursor.execute(
+            'INSERT INTO expenses (description, amount, date) VALUES (%s, %s, %s)',
+            (data['description'], float(data['amount']), date_str)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({'status': 'success'})
+    else:
+        cursor.execute('SELECT * FROM expenses ORDER BY date DESC, id DESC')
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return jsonify([dict(row) for row in rows])
+
+@app.route('/api/expenses/<int:exp_id>', methods=['DELETE'])
+def delete_expense(exp_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM expenses WHERE id = %s', (exp_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({'status': 'success'})
+
+if __name__ == '__main__':
+    init_db()
+    app.run(host='0.0.0.0', port=5000, debug=True)
