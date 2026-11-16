@@ -273,63 +273,89 @@
         renderShoppingList(items);
     }
 
-    async function aiSortShopping() {
-        const list = document.getElementById('shopping-list');
-        list.innerHTML = '<li class="list-group-item text-center text-muted py-3">🤖 L\'IA analyse et trie ta liste...</li>';
+async function aiSortShopping() {
+    const list = document.getElementById('shopping-list');
+    list.innerHTML = '<li class="list-group-item text-center text-muted py-3">🤖 L\'IA analyse et trie ta liste...</li>';
 
-        try {
-            const res = await fetch('/api/shopping/ai-sort', { method: 'POST' });
-            const data = await res.json();
-            
-            if (data.error) {
-                alert('Erreur IA : ' + data.error);
-                loadShopping();
-                return;
-            }
+    try {
+        const res = await fetch('/api/shopping/ai-sort', { method: 'POST' });
+        const data = await res.json();
+        
+        // Dictionnaire local de secours (mode réduit intelligent)
+        const getLocalCategory = (name) => {
+            const n = name.toLowerCase();
+            if (['avocat', 'tomate', 'pomme', 'banane', 'salade', 'carotte', 'oignon', 'citron', 'concombre', 'courgette'].some(w => n.includes(w))) return '🍎 Fruits & Légumes';
+            if (['lait', 'beurre', 'fromage', 'yaourt', 'crème', 'œufs', 'oeuf', 'mozzarella'].some(w => n.includes(w))) return '🧀 Produits Frais & Laitiers';
+            if (['viande', 'poulet', 'bœuf', 'steak', 'jambon', 'poisson', 'saumon'].some(w => n.includes(w))) return '🥩 Boucherie & Poissonnerie';
+            if (['moutarde','pâtes', 'riz', 'farine', 'sucre', 'huile', 'cracottes', 'crackers', 'conserve', 'sauce', 'café', 'thé', 'chocolat', 'gâteau', 'pain'].some(w => n.includes(w))) return '🥫 Épicerie & Sec';
+            if (['papier', 'savon', 'shampoing', 'lessive', 'dentifrice', 'éponge', 'sac'].some(w => n.includes(w))) return '🧻 Hygiène & Entretien';
+            return '🛒 Autres Rayons';
+        };
 
+        let sortedCategories = {};
+        let allItems = data.items;
+        let isFallback = data.fallback;
+
+        if (isFallback) {
+            // Mode réduit : on trie localement avec le dictionnaire
+            allItems.forEach(item => {
+                const cat = getLocalCategory(item.name);
+                if (!sortedCategories[cat]) sortedCategories[cat] = [];
+                sortedCategories[cat].push(item.name);
+            });
+        } else {
+            // Mode IA réussi
             let rawText = data.result.replace(/```json/g, '').replace(/```/g, '').trim();
-            let sortedCategories = JSON.parse(rawText);
-            let allItems = data.items;
-
-            list.innerHTML = '';
-            let total = 0;
-
-            for (const [rayon, articleNames] of Object.entries(sortedCategories)) {
-                const matchingItems = allItems.filter(i => articleNames.map(n => n.toLowerCase()).includes(i.name.toLowerCase()));
-                
-                if (matchingItems.length > 0) {
-                    const headerLi = document.createElement('li');
-                    headerLi.className = 'list-group-item bg-light text-success fw-bold small text-uppercase py-1';
-                    headerLi.innerText = rayon;
-                    list.appendChild(headerLi);
-
-                    matchingItems.forEach(item => {
-                        if (!item.bought) total += item.estimated_price;
-                        const li = document.createElement('li');
-                        li.className = 'list-group-item d-flex justify-content-between align-items-center ps-4';
-                        li.innerHTML = `
-                            <div class="form-check d-flex align-items-center gap-2">
-                                <input class="form-check-input" type="checkbox" ${item.bought ? 'checked' : ''} onchange="toggleBought(${item.id}, this.checked)">
-                                <label class="form-check-label ${item.bought ? 'bought-item' : ''}">
-                                    <strong>${item.name}</strong> ${item.quantity ? '(' + item.quantity + ')' : ''}
-                                </label>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-light text-dark">${item.estimated_price.toFixed(2)} ₪</span>
-                                <button class="btn btn-sm btn-outline-primary" onclick="openEditModal('shopping', ${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}', ${item.estimated_price})">Modifier</button>
-                                <button class="btn btn-sm btn-outline-danger" onclick="deleteShopping(${item.id})">✕</button>
-                            </div>
-                        `;
-                        list.appendChild(li);
-                    });
-                }
-            }
-            document.getElementById('total-estimated').innerText = total.toFixed(2) + ' ₪';
-        } catch (err) {
-            console.error(err);
-            loadShopping();
+            sortedCategories = JSON.parse(rawText);
         }
+
+        list.innerHTML = '';
+        let total = 0;
+
+        // Affichage d'un avertissement si on est en mode secours
+        if (isFallback) {
+            const alertLi = document.createElement('li');
+            alertLi.className = 'list-group-item alert alert-warning py-2 mb-2 small text-center';
+            alertLi.innerHTML = '⚠️ L\'IA n\'est pas dispo (surcharge), voici une version de tri en mode réduit.';
+            list.appendChild(alertLi);
+        }
+
+        for (const [rayon, articleNames] of Object.entries(sortedCategories)) {
+            const matchingItems = allItems.filter(i => articleNames.map(n => n.toLowerCase()).includes(i.name.toLowerCase()));
+            
+            if (matchingItems.length > 0) {
+                const headerLi = document.createElement('li');
+                headerLi.className = 'list-group-item bg-light text-success fw-bold small text-uppercase py-1';
+                headerLi.innerText = rayon;
+                list.appendChild(headerLi);
+
+                matchingItems.forEach(item => {
+                    if (!item.bought) total += item.estimated_price;
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center ps-4';
+                    li.innerHTML = `
+                        <div class="form-check d-flex align-items-center gap-2">
+                            <input class="form-check-input" type="checkbox" ${item.bought ? 'checked' : ''} onchange="toggleBought(${item.id}, this.checked)">
+                            <label class="form-check-label ${item.bought ? 'bought-item' : ''}">
+                                <strong>${item.name}</strong> ${item.quantity ? '(' + item.quantity + ')' : ''}
+                            </label>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-dark">${item.estimated_price.toFixed(2)} ₪</span>
+                            <button class="btn btn-sm btn-outline-primary" onclick="openEditModal('shopping', ${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}', ${item.estimated_price})">Modifier</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteShopping(${item.id})">✕</button>
+                        </div>
+                    `;
+                    list.appendChild(li);
+                });
+            }
+        }
+        document.getElementById('total-estimated').innerText = total.toFixed(2) + ' ₪';
+    } catch (err) {
+        console.error(err);
+        loadShopping();
     }
+}
 
     function renderShoppingList(items) {
         const list = document.getElementById('shopping-list');
