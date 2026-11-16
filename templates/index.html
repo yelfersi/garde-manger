@@ -20,13 +20,14 @@
 
 <div class="container mt-4" style="max-width: 800px;">
     <h2 class="text-center mb-4 fw-bold text-success">🛒 Mon Garde-Manger</h2>
-<!-- En-tête avec profil et déconnexion -->
+
     {% if user %}
     <div class="d-flex justify-content-between align-items-center mb-3 bg-white p-2 px-3 rounded shadow-sm">
         <span class="text-muted small">Connecté en tant que : <strong>{{ user.get('name', user.get('email')) }}</strong></span>
         <a href="/logout" class="btn btn-sm btn-outline-danger">Déconnexion</a>
     </div>
     {% endif %}
+
     <!-- Navigation -->
     <ul class="nav nav-pills nav-fill mb-4 bg-white p-2 rounded shadow-sm" id="pills-tab" role="tablist">
         <li class="nav-item" role="presentation">
@@ -69,7 +70,7 @@
             <ul class="list-group shadow-sm" id="shopping-list"></ul>
         </div>
 
-        <!-- ONGLET 2 : STOCKS (FRIGO, CONGÉLATEUR, PLACARD) -->
+        <!-- ONGLET 2 : STOCKS -->
         <div class="tab-pane fade" id="stock">
             <div class="card p-3">
                 <form id="form-inventory" class="row g-2">
@@ -130,7 +131,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // --- GESTION LISTE DE COURSES ---
+    // --- COURSES ---
     async function loadShopping() {
         const res = await fetch('/api/shopping');
         const items = await res.json();
@@ -142,21 +143,50 @@
             if (!item.bought) total += item.estimated_price;
             const li = document.createElement('li');
             li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.id = `shop-row-${item.id}`;
             li.innerHTML = `
-                <div class="form-check">
+                <div class="form-check d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox" ${item.bought ? 'checked' : ''} onchange="toggleBought(${item.id}, this.checked)">
                     <label class="form-check-label ${item.bought ? 'bought-item' : ''}">
                         <strong>${item.name}</strong> ${item.quantity ? '(' + item.quantity + ')' : ''}
                     </label>
                 </div>
-                <div>
-                    <span class="badge bg-light text-dark me-2">${item.estimated_price.toFixed(2)} ₪</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-light text-dark">${item.estimated_price.toFixed(2)} ₪</span>
+                    <button class="btn btn-sm btn-outline-primary" onclick="editShopping(${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}', ${item.estimated_price})">Modifier</button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteShopping(${item.id})">✕</button>
                 </div>
             `;
             list.appendChild(li);
         });
         document.getElementById('total-estimated').innerText = total.toFixed(2) + ' ₪';
+    }
+
+    function editShopping(id, name, quantity, price) {
+        const row = document.getElementById(`shop-row-${id}`);
+        row.innerHTML = `
+            <div class="d-flex gap-2 w-100 align-items-center py-1">
+                <input type="text" id="edit-shop-name-${id}" class="form-control form-control-sm" value="${name}">
+                <input type="text" id="edit-shop-qty-${id}" class="form-control form-control-sm" style="width: 90px;" value="${quantity}">
+                <input type="number" step="0.01" id="edit-shop-price-${id}" class="form-control form-control-sm" style="width: 90px;" value="${price}">
+                <button class="btn btn-sm btn-success" onclick="saveShopping(${id})">OK</button>
+                <button class="btn btn-sm btn-secondary" onclick="loadShopping()">Annuler</button>
+            </div>
+        `;
+    }
+
+    async function saveShopping(id) {
+        await fetch(`/api/shopping/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name: document.getElementById(`edit-shop-name-${id}`).value,
+                quantity: document.getElementById(`edit-shop-qty-${id}`).value,
+                estimated_price: document.getElementById(`edit-shop-price-${id}`).value,
+                bought: false
+            })
+        });
+        loadShopping();
     }
 
     document.getElementById('form-shopping').addEventListener('submit', async (e) => {
@@ -188,7 +218,7 @@
         loadShopping();
     }
 
-    // --- GESTION INVENTAIRE (Frigo, Congel, Placard) ---
+    // --- STOCKS ---
     async function loadInventory() {
         const res = await fetch('/api/inventory');
         const items = await res.json();
@@ -202,16 +232,52 @@
 
             const card = document.createElement('div');
             card.className = 'card p-2 mb-2 d-flex flex-row justify-content-between align-items-center';
+            card.id = `inv-row-${item.id}`;
             card.innerHTML = `
                 <div>
                     <span class="badge ${badgeClass} me-2">${item.location}</span>
                     <strong>${item.name}</strong> ${item.quantity ? '- ' + item.quantity : ''}
                     ${item.expiry_date ? `<small class="text-muted d-block ms-1">Péremption : ${item.expiry_date}</small>` : ''}
                 </div>
-                <button class="btn btn-sm btn-outline-warning text-dark fw-semibold" onclick="finishInventory(${item.id}, '${item.name}', '${item.quantity || ''}')">Fini</button>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-primary" onclick="editInventory(${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}', '${item.location}', '${item.expiry_date || ''}')">Modifier</button>
+                    <button class="btn btn-sm btn-outline-warning text-dark fw-semibold" onclick="finishInventory(${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}')">Fini</button>
+                </div>
             `;
             container.appendChild(card);
         });
+    }
+
+    function editInventory(id, name, quantity, location, expiryDate) {
+        const card = document.getElementById(`inv-row-${id}`);
+        card.innerHTML = `
+            <div class="d-flex gap-2 w-100 align-items-center flex-wrap py-1">
+                <input type="text" id="edit-inv-name-${id}" class="form-control form-control-sm" style="width: 150px;" value="${name}">
+                <input type="text" id="edit-inv-qty-${id}" class="form-control form-control-sm" style="width: 80px;" value="${quantity}">
+                <select id="edit-inv-loc-${id}" class="form-select form-select-sm" style="width: 120px;">
+                    <option value="Frigo" ${location === 'Frigo' ? 'selected' : ''}>🧊 Frigo</option>
+                    <option value="Congélateur" ${location === 'Congélateur' ? 'selected' : ''}>❄️ Congel</option>
+                    <option value="Placard" ${location === 'Placard' ? 'selected' : ''}>🥫 Placard</option>
+                </select>
+                <input type="date" id="edit-inv-date-${id}" class="form-control form-control-sm" style="width: 130px;" value="${expiryDate}">
+                <button class="btn btn-sm btn-success" onclick="saveInventory(${id})">OK</button>
+                <button class="btn btn-sm btn-secondary" onclick="loadInventory()">Annuler</button>
+            </div>
+        `;
+    }
+
+    async function saveInventory(id) {
+        await fetch(`/api/inventory/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name: document.getElementById(`edit-inv-name-${id}`).value,
+                quantity: document.getElementById(`edit-inv-qty-${id}`).value,
+                location: document.getElementById(`edit-inv-loc-${id}`).value,
+                expiry_date: document.getElementById(`edit-inv-date-${id}`).value
+            })
+        });
+        loadInventory();
     }
 
     document.getElementById('form-inventory').addEventListener('submit', async (e) => {
@@ -232,25 +298,19 @@
 
     async function finishInventory(id, name, quantity) {
         const addToShopping = confirm(`"${name}" est terminé.\n\nSouhaitez-vous l'ajouter automatiquement à votre liste de courses ?`);
-
         if (addToShopping) {
             await fetch('/api/shopping', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    name: name,
-                    quantity: quantity,
-                    estimated_price: 0
-                })
+                body: JSON.stringify({name: name, quantity: quantity, estimated_price: 0})
             });
         }
-
         await fetch(`/api/inventory/${id}`, {method: 'DELETE'});
         loadInventory();
         loadShopping();
     }
 
-    // --- GESTION BUDGET ---
+    // --- BUDGET ---
     async function loadExpenses() {
         const res = await fetch('/api/expenses');
         const items = await res.json();
@@ -266,19 +326,47 @@
             }
             const li = document.createElement('li');
             li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.id = `exp-row-${item.id}`;
             li.innerHTML = `
                 <div>
                     <strong>${item.description}</strong>
                     <small class="text-muted d-block">${item.date}</small>
                 </div>
-                <div>
-                    <span class="fw-bold me-3">${item.amount.toFixed(2)} ₪</span>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fw-bold">${item.amount.toFixed(2)} ₪</span>
+                    <button class="btn btn-sm btn-outline-primary" onclick="editExpense(${item.id}, '${item.description.replace(/'/g, "\\'")}', ${item.amount}, '${item.date}')">Modifier</button>
                     <button class="btn btn-sm btn-outline-danger" onclick="deleteExpense(${item.id})">✕</button>
                 </div>
             `;
             list.appendChild(li);
         });
         document.getElementById('monthly-total').innerText = monthlyTotal.toFixed(2) + ' ₪';
+    }
+
+    function editExpense(id, desc, amount, date) {
+        const row = document.getElementById(`exp-row-${id}`);
+        row.innerHTML = `
+            <div class="d-flex gap-2 w-100 align-items-center py-1">
+                <input type="text" id="edit-exp-desc-${id}" class="form-control form-control-sm" value="${desc}">
+                <input type="number" step="0.01" id="edit-exp-amount-${id}" class="form-control form-control-sm" style="width: 90px;" value="${amount}">
+                <input type="date" id="edit-exp-date-${id}" class="form-control form-control-sm" style="width: 130px;" value="${date}">
+                <button class="btn btn-sm btn-success" onclick="saveExpense(${id})">OK</button>
+                <button class="btn btn-sm btn-secondary" onclick="loadExpenses()">Annuler</button>
+            </div>
+        `;
+    }
+
+    async function saveExpense(id) {
+        await fetch(`/api/expenses/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                description: document.getElementById(`edit-exp-desc-${id}`).value,
+                amount: document.getElementById(`edit-exp-amount-${id}`).value,
+                date: document.getElementById(`edit-exp-date-${id}`).value
+            })
+        });
+        loadExpenses();
     }
 
     document.getElementById('form-expense').addEventListener('submit', async (e) => {
