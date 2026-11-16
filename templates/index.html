@@ -63,8 +63,11 @@
             </div>
 
             <div class="d-flex justify-content-between align-items-center mb-2 px-1">
-                <span class="text-muted">Estimation panier :</span>
-                <span class="fw-bold fs-5 text-success" id="total-estimated">0.00 ₪</span>
+                <button class="btn btn-sm btn-outline-success" onclick="aiSortShopping()">✨ Trier par IA</button>
+                <div>
+                    <span class="text-muted">Estimation panier :</span>
+                    <span class="fw-bold fs-5 text-success" id="total-estimated">0.00 ₪</span>
+                </div>
             </div>
 
             <ul class="list-group shadow-sm" id="shopping-list"></ul>
@@ -257,17 +260,78 @@
 
         if (response.ok) {
             editModal.hide();
-            // Rechargement immédiat de la liste correspondante
             if (type === 'shopping') loadShopping();
             if (type === 'inventory') loadInventory();
             if (type === 'expense') loadExpenses();
         }
     }
 
-    // --- COURSES ---
+    // --- COURSES & TRI IA ---
     async function loadShopping() {
         const res = await fetch('/api/shopping');
         const items = await res.json();
+        renderShoppingList(items);
+    }
+
+    async function aiSortShopping() {
+        const list = document.getElementById('shopping-list');
+        list.innerHTML = '<li class="list-group-item text-center text-muted py-3">🤖 L\'IA analyse et trie ta liste...</li>';
+
+        try {
+            const res = await fetch('/api/shopping/ai-sort', { method: 'POST' });
+            const data = await res.json();
+            
+            if (data.error) {
+                alert('Erreur IA : ' + data.error);
+                loadShopping();
+                return;
+            }
+
+            let rawText = data.result.replace(/```json/g, '').replace(/```/g, '').trim();
+            let sortedCategories = JSON.parse(rawText);
+            let allItems = data.items;
+
+            list.innerHTML = '';
+            let total = 0;
+
+            for (const [rayon, articleNames] of Object.entries(sortedCategories)) {
+                const matchingItems = allItems.filter(i => articleNames.map(n => n.toLowerCase()).includes(i.name.toLowerCase()));
+                
+                if (matchingItems.length > 0) {
+                    const headerLi = document.createElement('li');
+                    headerLi.className = 'list-group-item bg-light text-success fw-bold small text-uppercase py-1';
+                    headerLi.innerText = rayon;
+                    list.appendChild(headerLi);
+
+                    matchingItems.forEach(item => {
+                        if (!item.bought) total += item.estimated_price;
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item d-flex justify-content-between align-items-center ps-4';
+                        li.innerHTML = `
+                            <div class="form-check d-flex align-items-center gap-2">
+                                <input class="form-check-input" type="checkbox" ${item.bought ? 'checked' : ''} onchange="toggleBought(${item.id}, this.checked)">
+                                <label class="form-check-label ${item.bought ? 'bought-item' : ''}">
+                                    <strong>${item.name}</strong> ${item.quantity ? '(' + item.quantity + ')' : ''}
+                                </label>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-light text-dark">${item.estimated_price.toFixed(2)} ₪</span>
+                                <button class="btn btn-sm btn-outline-primary" onclick="openEditModal('shopping', ${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}', ${item.estimated_price})">Modifier</button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteShopping(${item.id})">✕</button>
+                            </div>
+                        `;
+                        list.appendChild(li);
+                    });
+                }
+            }
+            document.getElementById('total-estimated').innerText = total.toFixed(2) + ' ₪';
+        } catch (err) {
+            console.error(err);
+            loadShopping();
+        }
+    }
+
+    function renderShoppingList(items) {
         const list = document.getElementById('shopping-list');
         list.innerHTML = '';
         let total = 0;
