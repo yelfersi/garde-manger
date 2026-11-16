@@ -295,35 +295,33 @@ def ai_sort_shopping():
   conn = get_db_connection()
   cursor = conn.cursor()
   cursor.execute('SELECT * FROM shopping_list WHERE bought = 0')
-  items = cursor.fetchall()
+  rows = cursor.fetchall()
   cursor.close()
   conn.close()
 
-  if not items:
+  if not rows:
     return jsonify({})
 
-  # On prépare la liste des articles pour l'envoyer à Gemini
+  items = [dict(row) for row in rows]
   item_names = [item['name'] for item in items]
 
-  # Prompt direct et clair pour l'IA
   prompt = (
       'Classe les articles de courses suivants selon les rayons logiques'
-      " d'un supermarché (ex: Fruits & Légumes, Produits Frais, Épicerie,"
-      ' Boucherie, Hygiène, etc.). Réponds STRICTEMENT sous un format JSON où les'
-      ' clés sont les noms des rayons et les valeurs sont les listes'
-      f" d'articles correspondants.\nArticles à trier : {item_names}"
+      " d'un supermarché (ex: 🍎 Fruits & Légumes, 🧀 Produits Frais,"
+      ' 🥫 Épicerie & Sec, 🥩 Boucherie, 🧻 Hygiène). Réponds STRICTEMENT'
+      ' sous un format JSON où les clés sont les noms des rayons et les valeurs'
+      f' sont les listes des articles correspondants.\nArticles : {item_names}'
   )
 
   try:
-    # Appel au service externe Gemini
     response = client.models.generate_content(
         model='gemini-3.8-flash',
         contents=prompt,
     )
-    # L'IA te renvoie le classement propre qu'il ne reste plus qu'à transmettre au front
-    return jsonify({'result': response.text})
+    return jsonify({'result': response.text, 'items': items, 'fallback': False})
   except Exception as e:
-    return jsonify({'error': str(e)}), 500
+    # Si l'IA plante ou est surchargée (503), on renvoie les items bruts avec un drapeau fallback=True
+    return jsonify({'items': items, 'fallback': True})
     
     
 if __name__ == '__main__':
