@@ -98,6 +98,7 @@ def auth_callback():
   utilisateurs_autorises = [
       'yelfersi@gmail.com',
       'e.0548041564@gmail.com',
+      'edenrelfersi@gmail.com',
   ]
 
   if email not in utilisateurs_autorises:
