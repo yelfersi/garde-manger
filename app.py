@@ -116,10 +116,91 @@ def logout():
 
 
 # --- ROUTES PRINCIPALES ---
+
 @app.route('/')
 def index():
   return render_template('index.html', user=session.get('user'))
 
+@app.route('/api/recipes', methods=['GET'])
+def get_recipes():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM recipes
+        ORDER BY name
+    """)
+
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/api/recipes', methods=['POST'])
+def create_recipe():
+    data = request.json
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO recipes(name)
+        VALUES (%s)
+        RETURNING id
+        """,
+        (data["name"],)
+    )
+
+    recipe_id = cursor.fetchone()["id"]
+
+    for ingredient in data.get("ingredients", []):
+        cursor.execute(
+            """
+            INSERT INTO recipe_ingredients(
+                recipe_id,
+                ingredient_name
+            )
+            VALUES (%s,%s)
+            """,
+            (recipe_id, ingredient)
+        )
+
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify({"status": "success"})
+    
+    @app.route('/api/recipes/<int:recipe_id>/ingredients')
+def get_recipe_ingredients(recipe_id):
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT ingredient_name
+        FROM recipe_ingredients
+        WHERE recipe_id=%s
+        ORDER BY ingredient_name
+        """,
+        (recipe_id,)
+    )
+
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify([r["ingredient_name"] for r in rows])
+    
+    
 
 # --- API : LISTE DE COURSES ---
 @app.route('/api/shopping', methods=['GET', 'POST'])
