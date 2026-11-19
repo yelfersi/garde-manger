@@ -121,25 +121,6 @@ def logout():
 def index():
   return render_template('index.html', user=session.get('user'))
 
-@app.route('/api/recipes', methods=['GET'])
-def get_recipes():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT *
-        FROM recipes
-        ORDER BY name
-    """)
-
-    rows = cursor.fetchall()
-
-    cursor.close()
-    conn.close()
-
-    return jsonify([dict(r) for r in rows])
-
-
 @app.route('/api/recipes', methods=['POST'])
 def create_recipe():
     data = request.json
@@ -171,15 +152,14 @@ def create_recipe():
         )
 
     conn.commit()
-
     cursor.close()
     conn.close()
 
     return jsonify({"status": "success"})
-    
-    @app.route('/api/recipes/<int:recipe_id>/ingredients')
-def get_recipe_ingredients(recipe_id):
 
+
+@app.route('/api/recipes/<int:recipe_id>/ingredients')
+def get_recipe_ingredients(recipe_id):
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -199,8 +179,6 @@ def get_recipe_ingredients(recipe_id):
     conn.close()
 
     return jsonify([r["ingredient_name"] for r in rows])
-    
-    
 
 # --- API : LISTE DE COURSES ---
 @app.route('/api/shopping', methods=['GET', 'POST'])
@@ -400,7 +378,8 @@ def ai_sort_shopping():
         contents=prompt,
     )
     return jsonify({'result': response.text, 'items': items, 'fallback': False})
- except Exception as e:
+  
+  except Exception as e:
     return jsonify({
         'error': str(e),
         'items': items,
