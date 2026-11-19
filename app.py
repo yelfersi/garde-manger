@@ -319,9 +319,12 @@ def ai_sort_shopping():
         contents=prompt,
     )
     return jsonify({'result': response.text, 'items': items, 'fallback': False})
-  except Exception as e:
-    # Si l'IA plante ou est surchargée (503), on renvoie les items bruts avec un drapeau fallback=True
-    return jsonify({'items': items, 'fallback': True})
+ except Exception as e:
+    return jsonify({
+        'error': str(e),
+        'items': items,
+        'fallback': True
+    })
     
     
 if __name__ == '__main__':
