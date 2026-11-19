@@ -47,14 +47,16 @@ def init_db():
         )
     """)
   cursor.execute("""
-        CREATE TABLE IF NOT EXISTS inventory (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL,
-            quantity TEXT,
-            location TEXT NOT NULL,
-            expiry_date TEXT
-        )
-    """)
+    CREATE TABLE IF NOT EXISTS inventory (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        quantity TEXT,
+        location TEXT NOT NULL,
+        expiry_date TEXT,
+        item_type TEXT DEFAULT 'ingredient',
+        recipe_id BIGINT NULL
+    )
+""")
   cursor.execute("""
         CREATE TABLE IF NOT EXISTS expenses (
             id SERIAL PRIMARY KEY,
@@ -268,15 +270,26 @@ def handle_inventory():
   if request.method == 'POST':
     data = request.json
     cursor.execute(
-        'INSERT INTO inventory (name, quantity, location, expiry_date) VALUES'
-        ' (%s, %s, %s, %s)',
-        (
-            data.get('name', ''),
-            data.get('quantity', ''),
-            data.get('location', 'Frigo'),
-            data.get('expiry_date', ''),
-        ),
+    '''
+    INSERT INTO inventory (
+        name,
+        quantity,
+        location,
+        expiry_date,
+        item_type,
+        recipe_id
     )
+    VALUES (%s, %s, %s, %s, %s, %s)
+    ''',
+    (
+        data.get('name', ''),
+        data.get('quantity', ''),
+        data.get('location', 'Frigo'),
+        data.get('expiry_date', ''),
+        data.get('item_type', 'ingredient'),
+        data.get('recipe_id'),
+    ),
+)
     conn.commit()
     cursor.close()
     conn.close()
@@ -296,16 +309,27 @@ def update_inventory(item_id):
   if request.method == 'PUT':
     data = request.json
     cursor.execute(
-        'UPDATE inventory SET name = %s, quantity = %s, location = %s,'
-        ' expiry_date = %s WHERE id = %s',
-        (
-            data.get('name'),
-            data.get('quantity'),
-            data.get('location'),
-            data.get('expiry_date'),
-            item_id,
-        ),
-    )
+    '''
+    UPDATE inventory
+    SET
+        name = %s,
+        quantity = %s,
+        location = %s,
+        expiry_date = %s,
+        item_type = %s,
+        recipe_id = %s
+    WHERE id = %s
+    ''',
+    (
+        data.get('name'),
+        data.get('quantity'),
+        data.get('location'),
+        data.get('expiry_date'),
+        data.get('item_type', 'ingredient'),
+        data.get('recipe_id'),
+        item_id,
+    ),
+)
   elif request.method == 'DELETE':
     cursor.execute('DELETE FROM inventory WHERE id = %s', (item_id,))
   conn.commit()
