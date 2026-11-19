@@ -168,6 +168,13 @@
                         <option value="Placard">🥫 Placard</option>
                     </select>
                 </div>
+				<div class="mb-2">
+					<label class="form-label">Type</label>
+					<select id="inv-type" class="form-select">
+						<option value="ingredient">🥕 Ingrédient</option>
+						<option value="recipe">🍲 Plat préparé</option>
+					</select>
+				</div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
@@ -452,6 +459,8 @@ async function aiSortShopping() {
                 quantity: document.getElementById('inv-qty').value,
                 location: document.getElementById('inv-loc').value,
                 expiry_date: document.getElementById('inv-date').value
+				item_type: document.getElementById('inv-type').value,
+				recipe_id: null
             })
         });
         e.target.reset();
