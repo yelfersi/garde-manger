@@ -7,13 +7,11 @@ import psycopg2.extras
 
 app = Flask(__name__)
 # Clé secrète pour sécuriser les sessions utilisateur
-app.secret_key = os.environ.get('SECRET_KEY', 'une_cle_secrete_tres_seure')
+app.secret_key = os.environ['SECRET_KEY']
 
 # Configuration OAuth Google
-GOOGLE_CLIENT_ID = (
-    '653413031213-dpluue7mtvbhjc7mocckq37hlpjo01td.apps.googleusercontent.com'
-)
-GOOGLE_CLIENT_SECRET = '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'
+GOOGLE_CLIENT_ID = os.environ['GOOGLE_CLIENT_ID']
+GOOGLE_CLIENT_SECRET = os.environ['GOOGLE_CLIENT_SECRET']
 
 oauth = OAuth(app)
 google = oauth.register(
@@ -25,7 +23,7 @@ google = oauth.register(
 )
 
 # URL de connexion PostgreSQL (Supabase)
-DATABASE_URL = 'postgresql://postgres.xjaxuswcvtbwynhajmez:kawXP90LWa4FE7zz@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres'
+DATABASE_URL = os.environ['DATABASE_URL']
 
 
 def get_db_connection():
@@ -98,7 +96,6 @@ def auth_callback():
   utilisateurs_autorises = [
       'yelfersi@gmail.com',
       'e.0548041564@gmail.com',
-      'edenrelfersi@gmail.com',
   ]
 
   if email not in utilisateurs_autorises:
@@ -288,7 +285,9 @@ import os
 from google import genai
 
 # Remplace 'TA_CLE_API' par ta vraie clé secrète
-client = genai.Client(api_key='AQ.Ab8RN6JGE9Z2RZrcj94mKYToKLpZnMu2hvAh1D4vg1kt2fjkNw')
+client = genai.Client(
+    api_key=os.environ['GEMINI_API_KEY']
+)
 
 
 @app.route('/api/shopping/ai-sort', methods=['POST'])
