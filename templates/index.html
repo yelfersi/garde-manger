@@ -54,7 +54,6 @@
                         <input type="text" id="shop-qty" class="form-control" placeholder="Qté (ex: 2L)">
 						<select id="shop-type" class="form-select">
     <option value="ingredient">🥕 Ingrédient</option>
-    <option value="recipe">🍲 Plat préparé</option>
     <option value="household">🧴 Produit du quotidien</option>
 </select>
                     </div>
@@ -413,10 +412,11 @@ async function aiSortShopping() {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                name: document.getElementById('shop-name').value,
-                quantity: document.getElementById('shop-qty').value,
-                estimated_price: document.getElementById('shop-price').value
-            })
+    name: document.getElementById('shop-name').value,
+    quantity: document.getElementById('shop-qty').value,
+    estimated_price: document.getElementById('shop-price').value,
+    item_type: document.getElementById('shop-type').value
+})
         });
         e.target.reset();
         loadShopping();
