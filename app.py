@@ -127,29 +127,47 @@ def index():
 # --- API : LISTE DE COURSES ---
 @app.route('/api/shopping', methods=['GET', 'POST'])
 def handle_shopping():
-  conn = get_db_connection()
-  cursor = conn.cursor()
-  if request.method == 'POST':
-    data = request.json
-    cursor.execute(
-        'INSERT INTO shopping_list (name, quantity, estimated_price) VALUES'
-        ' (%s, %s, %s)',
-        (
-            data.get('name', ''),
-            data.get('quantity', ''),
-            float(data.get('estimated_price') or 0),
-        ),
-    )
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return jsonify({'status': 'success'})
-  else:
-    cursor.execute('SELECT * FROM shopping_list ORDER BY bought ASC, id DESC')
-    rows = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return jsonify([dict(row) for row in rows])
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        data = request.json
+
+        cursor.execute(
+            '''
+            INSERT INTO shopping_list (
+                name,
+                quantity,
+                estimated_price,
+                item_type
+            )
+            VALUES (%s, %s, %s, %s)
+            ''',
+            (
+                data.get('name', ''),
+                data.get('quantity', ''),
+                float(data.get('estimated_price') or 0),
+                data.get('item_type', 'ingredient'),
+            ),
+        )
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({'status': 'success'})
+
+    else:
+        cursor.execute(
+            'SELECT * FROM shopping_list ORDER BY bought ASC, id DESC'
+        )
+
+        rows = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify([dict(row) for row in rows])
 
 
 @app.route('/api/shopping/<int:item_id>', methods=['PUT', 'DELETE'])
