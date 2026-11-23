@@ -38,14 +38,15 @@ def init_db():
   cursor = conn.cursor()
 
   cursor.execute("""
-        CREATE TABLE IF NOT EXISTS shopping_list (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL,
-            quantity TEXT,
-            estimated_price REAL DEFAULT 0.0,
-            bought INTEGER DEFAULT 0
-        )
-    """)
+    CREATE TABLE IF NOT EXISTS shopping_list (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        quantity TEXT,
+        estimated_price REAL DEFAULT 0.0,
+        item_type TEXT DEFAULT 'ingredient',
+        bought INTEGER DEFAULT 0
+    )
+""")
   cursor.execute("""
     CREATE TABLE IF NOT EXISTS inventory (
         id SERIAL PRIMARY KEY,
@@ -172,33 +173,50 @@ def handle_shopping():
 
 @app.route('/api/shopping/<int:item_id>', methods=['PUT', 'DELETE'])
 def update_shopping(item_id):
-  conn = get_db_connection()
-  cursor = conn.cursor()
-  if request.method == 'PUT':
-    data = request.json
-    if 'bought' in data and len(data) == 1:
-      cursor.execute(
-          'UPDATE shopping_list SET bought = %s WHERE id = %s',
-          (1 if data['bought'] else 0, item_id),
-      )
-    else:
-      cursor.execute(
-          'UPDATE shopping_list SET name = %s, quantity = %s, estimated_price ='
-          ' %s, bought = %s WHERE id = %s',
-          (
-              data.get('name'),
-              data.get('quantity'),
-              float(data.get('estimated_price') or 0),
-              1 if data.get('bought') else 0,
-              item_id,
-          ),
-      )
-  elif request.method == 'DELETE':
-    cursor.execute('DELETE FROM shopping_list WHERE id = %s', (item_id,))
-  conn.commit()
-  cursor.close()
-  conn.close()
-  return jsonify({'status': 'success'})
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    if request.method == 'PUT':
+        data = request.json
+
+        if 'bought' in data and len(data) == 1:
+            cursor.execute(
+                'UPDATE shopping_list SET bought = %s WHERE id = %s',
+                (1 if data['bought'] else 0, item_id),
+            )
+        else:
+            cursor.execute(
+                '''
+                UPDATE shopping_list
+                SET
+                    name = %s,
+                    quantity = %s,
+                    estimated_price = %s,
+                    item_type = %s,
+                    bought = %s
+                WHERE id = %s
+                ''',
+                (
+                    data.get('name'),
+                    data.get('quantity'),
+                    float(data.get('estimated_price') or 0),
+                    data.get('item_type', 'ingredient'),
+                    1 if data.get('bought') else 0,
+                    item_id,
+                ),
+            )
+
+    elif request.method == 'DELETE':
+        cursor.execute(
+            'DELETE FROM shopping_list WHERE id = %s',
+            (item_id,)
+        )
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return jsonify({'status': 'success'})
 
 # --- API : RECETTES ---
 
