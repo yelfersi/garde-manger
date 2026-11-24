@@ -94,25 +94,56 @@ def norm_text(value):
   return re.sub(r'\s+', ' ', s).strip()
 
 
+def stem_word(word):
+  """Ramène un mot à une forme sans pluriel (règles simples, français et hébreu).
+
+  Doit rester identique à stemWord() du JavaScript (index.html).
+  """
+  if re.fullmatch('[\u05d0-\u05ea]+', word):
+    # Hébreu : lettres finales ramenées à la forme normale (אדום = אדומים)
+    word = word.translate(str.maketrans('\u05da\u05dd\u05df\u05e3\u05e5', '\u05db\u05de\u05e0\u05e4\u05e6'))
+    if len(word) >= 5 and (word.endswith('\u05d9\u05de') or word.endswith('\u05d5\u05ea')):
+      word = word[:-2]      # pluriels -ים / -ות
+    elif len(word) >= 4 and word.endswith('\u05d4'):
+      word = word[:-1]      # féminin singulier -ה (עגבנייה / עגבניות)
+    elif len(word) >= 5 and word.endswith('\u05d9\u05ea'):
+      word = word[:-1]      # féminin singulier -ית (צנונית / צנוניות)
+    return word.replace('\u05d9\u05d9', '\u05d9')
+  if re.fullmatch('[a-z]+', word) and len(word) >= 4 and word[-1] in 'sx' and not word.endswith('ss'):
+    return word[:-1]        # tomates, gâteaux, œufs...
+  return word
+
+
+def stem_text(value):
+  words = [w for w in re.split(r"[\s\-']+", norm_text(value)) if w]
+  return ' '.join(stem_word(w) for w in words)
+
+
 def load_term_index(cursor):
-  """Retourne {mot normalisé: id du terme} pour le français et l'hébreu."""
-  cursor.execute('SELECT id, fr, he FROM terms')
-  index = {}
+  """Retourne (exact, racines) : {mot normalisé: id} et {mot sans pluriel: id}."""
+  cursor.execute('SELECT id, fr, he FROM terms ORDER BY id')
+  exact, stems = {}, {}
   for row in cursor.fetchall():
     for word in (row['fr'], row['he']):
       if word:
-        index[norm_text(word)] = row['id']
-  return index
+        exact[norm_text(word)] = row['id']
+        stems.setdefault(stem_text(word), row['id'])
+  return exact, stems
+
+
+def find_term_id(name, index):
+  """Id du terme correspondant : mot exact d'abord, puis mot sans pluriel."""
+  exact, stems = index
+  return exact.get(norm_text(name)) or stems.get(stem_text(name))
 
 
 def item_key(name, index):
-  """Clé de comparaison d'un article : le terme du glossaire s'il existe, sinon le nom normalisé.
+  """Clé de comparaison d'un article : le terme du glossaire s'il existe, sinon le nom sans pluriel.
 
-  Ainsi « lait » et « חלב » donnent la même clé.
+  Ainsi « lait », « חלב » (et « tomate » / « tomates ») donnent la même clé.
   """
-  normalized = norm_text(name)
-  term_id = index.get(normalized)
-  return ('t', term_id) if term_id else ('n', normalized)
+  term_id = find_term_id(name, index)
+  return ('t', term_id) if term_id else ('n', stem_text(name))
 
 
 def init_db():
