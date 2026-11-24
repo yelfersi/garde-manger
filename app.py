@@ -2,6 +2,7 @@ from contextlib import contextmanager
 from datetime import datetime
 import os
 import re
+import unicodedata
 
 from authlib.integrations.flask_client import OAuth
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
@@ -81,6 +82,39 @@ def clean_ingredients(raw_list):
   return result
 
 
+def norm_text(value):
+  """Normalise un mot pour les comparaisons : casse, accents, voyelles hébraïques, apostrophes.
+
+  Doit rester identique à la fonction norm() du JavaScript (index.html).
+  """
+  s = str(value or '').lower().replace('\u0153', 'oe')
+  s = re.sub('[\u05f3\u2019\u2018`\u00b4]', "'", s)
+  s = unicodedata.normalize('NFD', s)
+  s = re.sub('[\u0300-\u036f\u0591-\u05c7]', '', s)
+  return re.sub(r'\s+', ' ', s).strip()
+
+
+def load_term_index(cursor):
+  """Retourne {mot normalisé: id du terme} pour le français et l'hébreu."""
+  cursor.execute('SELECT id, fr, he FROM terms')
+  index = {}
+  for row in cursor.fetchall():
+    for word in (row['fr'], row['he']):
+      if word:
+        index[norm_text(word)] = row['id']
+  return index
+
+
+def item_key(name, index):
+  """Clé de comparaison d'un article : le terme du glossaire s'il existe, sinon le nom normalisé.
+
+  Ainsi « lait » et « חלב » donnent la même clé.
+  """
+  normalized = norm_text(name)
+  term_id = index.get(normalized)
+  return ('t', term_id) if term_id else ('n', normalized)
+
+
 def init_db():
   with db() as cursor:
     cursor.execute("""
@@ -124,6 +158,17 @@ def init_db():
           id BIGSERIAL PRIMARY KEY,
           recipe_id BIGINT NOT NULL,
           ingredient_name TEXT NOT NULL
+      )
+    """)
+    # V3 : glossaire bilingue (le contenu de départ est dans migration_v3.sql)
+    cursor.execute("""
+      CREATE TABLE IF NOT EXISTS terms (
+          id BIGSERIAL PRIMARY KEY,
+          fr TEXT,
+          he TEXT,
+          source TEXT NOT NULL DEFAULT 'manual',
+          created_at TIMESTAMPTZ DEFAULT now(),
+          CONSTRAINT terms_has_a_name CHECK (fr IS NOT NULL OR he IS NOT NULL)
       )
     """)
     # V2 : lien entre un article acheté et la ligne créée en stock
@@ -531,17 +576,20 @@ def finish_inventory(item_id):
 
   added, skipped = [], []
   with db() as cursor:
-    cursor.execute('SELECT lower(name) AS n FROM shopping_list WHERE bought = 0')
-    already = {row['n'] for row in cursor.fetchall()}
+    # Comparaison par produit : « lait » et « חלב » comptent comme un seul article
+    index = load_term_index(cursor)
+    cursor.execute('SELECT name FROM shopping_list WHERE bought = 0')
+    already = {item_key(row['name'], index) for row in cursor.fetchall()}
 
     for entry in restock:
       name = (entry.get('name') or '').strip()
       if not name:
         continue
-      if name.lower() in already:
+      key = item_key(name, index)
+      if key in already:
         skipped.append(name)
         continue
-      already.add(name.lower())
+      already.add(key)
       cursor.execute(
           """
           INSERT INTO shopping_list (name, quantity, estimated_price, item_type)
@@ -595,6 +643,75 @@ def update_expense(exp_id):
       )
     else:
       cursor.execute('DELETE FROM expenses WHERE id = %s', (exp_id,))
+  return jsonify({'status': 'success'})
+
+
+# --- API : GLOSSAIRE BILINGUE ---
+def clean_term_payload(data):
+  fr = (data.get('fr') or '').strip() or None
+  he = (data.get('he') or '').strip() or None
+  return fr, he
+
+
+def find_term_conflict(cursor, fr, he, exclude_id=None):
+  """Retourne le premier mot déjà utilisé par un autre terme, sinon None."""
+  wanted = {norm_text(w): w for w in (fr, he) if w}
+  cursor.execute('SELECT id, fr, he FROM terms')
+  for row in cursor.fetchall():
+    if row['id'] == exclude_id:
+      continue
+    for word in (row['fr'], row['he']):
+      if word and norm_text(word) in wanted:
+        return wanted[norm_text(word)]
+  return None
+
+
+@app.route('/api/terms', methods=['GET'])
+def get_terms():
+  with db() as cursor:
+    cursor.execute(
+        'SELECT id, fr, he FROM terms ORDER BY lower(coalesce(fr, he))'
+    )
+    rows = cursor.fetchall()
+  return jsonify([dict(row) for row in rows])
+
+
+@app.route('/api/terms', methods=['POST'])
+def create_term():
+  fr, he = clean_term_payload(request.json or {})
+  if not fr and not he:
+    return jsonify({'status': 'error', 'message': 'Renseigne au moins un mot.'}), 400
+  with db() as cursor:
+    conflict = find_term_conflict(cursor, fr, he)
+    if conflict:
+      return jsonify({'status': 'error',
+                      'message': f'« {conflict} » existe déjà dans le glossaire.'}), 409
+    cursor.execute(
+        "INSERT INTO terms (fr, he, source) VALUES (%s, %s, 'manual') RETURNING id",
+        (fr, he),
+    )
+    term_id = cursor.fetchone()['id']
+  return jsonify({'status': 'success', 'id': term_id})
+
+
+@app.route('/api/terms/<int:term_id>', methods=['PUT', 'DELETE'])
+def update_term(term_id):
+  with db() as cursor:
+    if request.method == 'PUT':
+      fr, he = clean_term_payload(request.json or {})
+      if not fr and not he:
+        return jsonify({'status': 'error', 'message': 'Renseigne au moins un mot.'}), 400
+      conflict = find_term_conflict(cursor, fr, he, exclude_id=term_id)
+      if conflict:
+        return jsonify({'status': 'error',
+                        'message': f'« {conflict} » existe déjà dans le glossaire.'}), 409
+      cursor.execute(
+          "UPDATE terms SET fr = %s, he = %s, source = 'manual' WHERE id = %s",
+          (fr, he, term_id),
+      )
+    else:
+      # Les articles gardent leur nom ; ils perdent simplement leur traduction
+      cursor.execute('DELETE FROM terms WHERE id = %s', (term_id,))
   return jsonify({'status': 'success'})
 
 
