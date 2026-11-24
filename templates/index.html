@@ -10,10 +10,11 @@
         .card { border: none; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .bought-item { text-decoration: line-through; color: #adb5bd; }
         .nav-pills .nav-link.active { background-color: #198754; }
-        .nav-pills .nav-link { color: #198754; font-weight: 500; }
+        .nav-pills .nav-link { color: #198754; font-weight: 500; padding-left: 6px; padding-right: 6px; }
         .badge-frigo { background-color: #0dcaf0; color: #000; }
         .badge-congel { background-color: #0d6efd; color: #fff; }
         .badge-placard { background-color: #ffc107; color: #000; }
+        .ingredient-chip { background-color: #e9f5ee; color: #146c43; font-weight: 500; }
     </style>
 </head>
 <body>
@@ -34,7 +35,10 @@
             <button class="nav-link active" id="tab-courses" data-bs-toggle="pill" data-bs-target="#courses" type="button">📝 Courses</button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-stock" data-bs-toggle="pill" data-bs-target="#stock" type="button">📦 Stocks (Frigo/Placard)</button>
+            <button class="nav-link" id="tab-stock" data-bs-toggle="pill" data-bs-target="#stock" type="button">📦 Stocks</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-recipes" data-bs-toggle="pill" data-bs-target="#recipes" type="button">🍲 Recettes</button>
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="tab-budget" data-bs-toggle="pill" data-bs-target="#budget" type="button">💶 Budget</button>
@@ -42,33 +46,37 @@
     </ul>
 
     <div class="tab-content" id="pills-tabContent">
-        
+
         <!-- ONGLET 1 : LISTE DE COURSES -->
         <div class="tab-pane fade show active" id="courses">
             <div class="card p-3">
                 <form id="form-shopping" class="row g-2">
-                    <div class="col-6 col-md-5">
+                    <div class="col-12 col-md-4">
                         <input type="text" id="shop-name" class="form-control" placeholder="Article (ex: Lait)" required>
                     </div>
-                    <div class="col-6 col-md-3">
+                    <div class="col-6 col-md-2">
                         <input type="text" id="shop-qty" class="form-control" placeholder="Qté (ex: 2L)">
-						<select id="shop-type" class="form-select">
-    <option value="ingredient">🥕 Ingrédient</option>
-    <option value="household">🧴 Produit du quotidien</option>
-</select>
                     </div>
-					
+                    <div class="col-6 col-md-3">
+                        <select id="shop-type" class="form-select">
+                            <option value="ingredient">🥕 Ingrédient</option>
+                            <option value="household">🧴 Produit du quotidien</option>
+                        </select>
+                    </div>
                     <div class="col-8 col-md-2">
                         <input type="number" step="0.01" id="shop-price" class="form-control" placeholder="Prix ₪">
                     </div>
-                    <div class="col-4 col-md-2">
+                    <div class="col-4 col-md-1">
                         <button type="submit" class="btn btn-success w-100">+</button>
                     </div>
                 </form>
             </div>
 
-            <div class="d-flex justify-content-between align-items-center mb-2 px-1">
-                <button class="btn btn-sm btn-outline-success" onclick="aiSortShopping()">✨ Trier par IA</button>
+            <div class="d-flex justify-content-between align-items-center mb-2 px-1 flex-wrap gap-2">
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-success" onclick="aiSortShopping()">✨ Trier par IA</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="btn-clear-bought" style="display:none;" onclick="clearBought()">🧹 Retirer les articles achetés</button>
+                </div>
                 <div>
                     <span class="text-muted">Estimation panier :</span>
                     <span class="fw-bold fs-5 text-success" id="total-estimated">0.00 ₪</span>
@@ -82,32 +90,35 @@
         <div class="tab-pane fade" id="stock">
             <div class="card p-3">
                 <form id="form-inventory" class="row g-2">
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-3">
                         <input type="text" id="inv-name" class="form-control" placeholder="Produit (ex: Pâtes)" required>
                     </div>
                     <div class="col-6 col-md-2">
                         <input type="text" id="inv-qty" class="form-control" placeholder="Qté">
                     </div>
-                 <div class="col-6 col-md-3">
-    <select id="inv-type" class="form-select">
-        <option value="ingredient">🥕 Ingrédient</option>
-        <option value="recipe">🍲 Plat préparé</option>
-        <option value="household">🧴 Produit du quotidien</option>
-    </select>
-</div>
-
-<div class="col-6 col-md-3">
-    <select id="inv-loc" class="form-select">
-        <option value="Frigo">🧊 Frigo</option>
-        <option value="Congélateur">❄️ Congélateur</option>
-        <option value="Placard">🥫 Placard</option>
-    </select>
-</div>
-                    <div class="col-8 col-md-1">
+                    <div class="col-6 col-md-3">
+                        <select id="inv-type" class="form-select">
+                            <option value="ingredient">🥕 Ingrédient</option>
+                            <option value="recipe">🍲 Plat préparé</option>
+                            <option value="household">🧴 Produit du quotidien</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <select id="inv-loc" class="form-select">
+                            <option value="Frigo">🧊 Frigo</option>
+                            <option value="Congélateur">❄️ Congélateur</option>
+                            <option value="Placard">🥫 Placard</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
                         <input type="date" id="inv-date" class="form-control" title="Date de péremption">
                     </div>
-                    <div class="col-4 col-md-2">
-                        <button type="submit" class="btn btn-primary w-100">+</button>
+                    <div class="col-12 col-md-12" id="inv-recipe-container" style="display:none;">
+                        <label class="form-label text-muted small mb-1" for="inv-recipe">Recette associée (pour racheter les ingrédients à la fin du plat)</label>
+                        <select id="inv-recipe" class="form-select"></select>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary w-100">Ajouter au stock</button>
                     </div>
                 </form>
             </div>
@@ -115,7 +126,16 @@
             <div id="inventory-list"></div>
         </div>
 
-        <!-- ONGLET 3 : BUDGET -->
+        <!-- ONGLET 3 : RECETTES -->
+        <div class="tab-pane fade" id="recipes">
+            <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-success flex-fill" onclick="openRecipeModal()">+ Nouvelle recette</button>
+                <button class="btn btn-outline-success flex-fill" onclick="openImportModal()">📥 Importer des recettes</button>
+            </div>
+            <div id="recipe-list"></div>
+        </div>
+
+        <!-- ONGLET 4 : BUDGET -->
         <div class="tab-pane fade" id="budget">
             <div class="card p-3 text-center bg-success text-white">
                 <h6 class="text-uppercase mb-1">Dépenses du mois en cours</h6>
@@ -145,7 +165,7 @@
     </div>
 </div>
 
-<!-- Modal d'édition unique -->
+<!-- Modal d'édition unique (courses / stock / dépenses) -->
 <div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -156,7 +176,7 @@
             <div class="modal-body">
                 <input type="hidden" id="modal-edit-id">
                 <input type="hidden" id="modal-edit-type">
-                
+
                 <div class="mb-3">
                     <label class="form-label text-muted small">Nom</label>
                     <input type="text" id="modal-edit-name" class="form-control">
@@ -170,7 +190,7 @@
                     <input type="text" id="modal-edit-extra" class="form-control">
                 </div>
                 <div class="mb-3" id="field-date-container" style="display:none;">
-                    <label class="form-label text-muted small">Date</label>
+                    <label class="form-label text-muted small" id="label-date">Date</label>
                     <input type="date" id="modal-edit-date" class="form-control">
                 </div>
                 <div class="mb-3" id="field-loc-container" style="display:none;">
@@ -181,14 +201,14 @@
                         <option value="Placard">🥫 Placard</option>
                     </select>
                 </div>
-				<div class="mb-2">
-					<label class="form-label">Type</label>
-					<select id="modal-edit-item-type" class="form-select">
-						<option value="ingredient">🥕 Ingrédient</option>
-						<option value="recipe">🍲 Plat préparé</option>
-						<option value="household">🧴 Produit du quotidien</option>
-					</select>
-				</div>
+                <div class="mb-3" id="field-type-container">
+                    <label class="form-label text-muted small">Type</label>
+                    <select id="modal-edit-item-type" class="form-select"></select>
+                </div>
+                <div class="mb-2" id="field-recipe-container" style="display:none;">
+                    <label class="form-label text-muted small">Recette associée</label>
+                    <select id="modal-edit-recipe" class="form-select"></select>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
@@ -198,322 +218,686 @@
     </div>
 </div>
 
+<!-- Modal : choix de l'emplacement à l'achat -->
+<div class="modal fade" id="buyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Ranger l'article acheté</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Où rangez-vous <strong id="buy-item-name"></strong> ?</p>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Emplacement</label>
+                    <select id="buy-loc" class="form-select">
+                        <option value="Frigo">🧊 Frigo</option>
+                        <option value="Congélateur">❄️ Congélateur</option>
+                        <option value="Placard">🥫 Placard</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label text-muted small">Date de péremption (facultatif)</label>
+                    <input type="date" id="buy-date" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-success" onclick="confirmBuy()">Ajouter au stock</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal : fin d'un article / plat préparé et réapprovisionnement -->
+<div class="modal fade" id="restockModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title" id="restock-title">Terminé</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2" id="restock-intro"></p>
+                <div id="restock-list"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-warning fw-semibold" id="restock-confirm" onclick="confirmRestock()">Terminer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal : création / modification de recette -->
+<div class="modal fade" id="recipeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="recipe-modal-title">Nouvelle recette</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="recipe-edit-id">
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Nom de la recette</label>
+                    <input type="text" id="recipe-edit-name" class="form-control" placeholder="ex : Gratin dauphinois">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label text-muted small">Ingrédients (un par ligne)</label>
+                    <textarea id="recipe-edit-ingredients" class="form-control" rows="8" placeholder="pommes de terre&#10;crème&#10;ail"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-success" onclick="saveRecipe()">Enregistrer la recette</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal : import de recettes -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Importer des recettes</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-2">
+                    Une recette par bloc, séparée de la suivante par une ligne vide.
+                    La première ligne est le nom, les suivantes sont les ingrédients.
+                    Écriture en une ligne possible : <em>Soupe : carotte, poireau, oignon</em>.
+                    Les recettes dont le nom existe déjà sont ignorées.
+                </p>
+                <textarea id="import-text" class="form-control font-monospace small" rows="12" placeholder="Gratin dauphinois&#10;- pommes de terre&#10;- crème&#10;- ail&#10;&#10;Soupe de légumes&#10;- carotte&#10;- poireau"></textarea>
+                <div id="import-result" class="small mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Fermer</button>
+                <button type="button" class="btn btn-success" onclick="importRecipes()">Importer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notifications -->
+<div class="toast-container position-fixed bottom-0 start-50 translate-middle-x p-3" style="z-index: 2000;">
+    <div id="appToast" class="toast align-items-center text-bg-dark border-0" role="status" aria-live="polite" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" id="appToastBody"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fermer"></button>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+    // ---------- OUTILS ----------
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const $ = id => document.getElementById(id);
+    const modal = id => bootstrap.Modal.getOrCreateInstance($(id));
+    const TYPE_ICONS = { ingredient: '🥕', household: '🧴', recipe: '🍲' };
+    const TYPE_LABELS = { ingredient: '🥕 Ingrédient', household: '🧴 Produit du quotidien', recipe: '🍲 Plat préparé' };
+    const typeIcon = t => TYPE_ICONS[t] || '🥕';
 
-    function openEditModal(type, id, name, extra1, extra2, extra3) {
-        document.getElementById('modal-edit-type').value = type;
-        document.getElementById('modal-edit-id').value = id;
-        document.getElementById('modal-edit-name').value = name;
-        
-        const qtyContainer = document.getElementById('field-qty-container');
-        const extraContainer = document.getElementById('field-extra-container');
-        const dateContainer = document.getElementById('field-date-container');
-        const locContainer = document.getElementById('field-loc-container');
-        
-        qtyContainer.style.display = 'block';
-        extraContainer.style.display = 'block';
-        dateContainer.style.display = 'none';
-        locContainer.style.display = 'none';
-
-        if (type === 'shopping') {
-            document.getElementById('label-extra').innerText = 'Prix estimé (₪)';
-            document.getElementById('modal-edit-qty').value = extra1;
-            document.getElementById('modal-edit-extra').value = extra2;
-        } else if (type === 'inventory') {
-            qtyContainer.style.display = 'block';
-            extraContainer.style.display = 'none';
-            dateContainer.style.display = 'block';
-            locContainer.style.display = 'block';
-            document.getElementById('modal-edit-qty').value = extra1;
-            document.getElementById('modal-edit-loc').value = extra2;
-            document.getElementById('modal-edit-date').value = extra3;
-        } else if (type === 'expense') {
-            qtyContainer.style.display = 'none';
-            document.getElementById('label-extra').innerText = 'Montant (₪)';
-            document.getElementById('modal-edit-extra').value = extra1;
-            dateContainer.style.display = 'block';
-            document.getElementById('modal-edit-date').value = extra2;
-        }
-        
-        editModal.show();
+    function showToast(message) {
+        $('appToastBody').innerText = message;
+        bootstrap.Toast.getOrCreateInstance($('appToast'), { delay: 3500 }).show();
     }
 
+    async function api(url, method = 'GET', body = null) {
+        const options = { method, headers: {} };
+        if (body !== null) {
+            options.headers['Content-Type'] = 'application/json';
+            options.body = JSON.stringify(body);
+        }
+        const res = await fetch(url, options);
+        if (!res.ok) {
+            let message = 'Une erreur est survenue.';
+            try { message = (await res.json()).message || message; } catch (e) {}
+            showToast(message);
+            throw new Error(message);
+        }
+        return res.json();
+    }
+
+    // Caches pour éviter de passer des textes dans les attributs onclick
+    let shoppingCache = [];
+    let inventoryCache = [];
+    let expenseCache = [];
+    let recipesCache = [];
+
+    function fillTypeSelect(select, allowedTypes, selected) {
+        select.innerHTML = allowedTypes.map(t => `<option value="${t}">${TYPE_LABELS[t]}</option>`).join('');
+        select.value = allowedTypes.includes(selected) ? selected : allowedTypes[0];
+    }
+
+    function fillRecipeSelect(select, selectedId) {
+        if (recipesCache.length === 0) {
+            select.innerHTML = '<option value="">Aucune recette : crée-en une dans l\'onglet Recettes</option>';
+            return;
+        }
+        select.innerHTML = '<option value="">— Aucune recette —</option>' +
+            recipesCache.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
+        select.value = selectedId ? String(selectedId) : '';
+    }
+
+    // ---------- MODAL D'ÉDITION (courses / stock / dépenses) ----------
+    function openEditModal(kind, item) {
+        $('modal-edit-type').value = kind;
+        $('modal-edit-id').value = item.id;
+        $('modal-edit-name').value = kind === 'expense' ? item.description : item.name;
+
+        const show = (id, visible) => $(id).style.display = visible ? 'block' : 'none';
+        show('field-qty-container', kind !== 'expense');
+        show('field-extra-container', kind !== 'inventory');
+        show('field-date-container', kind !== 'shopping');
+        show('field-loc-container', kind === 'inventory');
+        show('field-type-container', kind !== 'expense');
+        show('field-recipe-container', false);
+
+        if (kind === 'shopping') {
+            $('label-extra').innerText = 'Prix estimé (₪)';
+            $('modal-edit-qty').value = item.quantity || '';
+            $('modal-edit-extra').value = item.estimated_price || 0;
+            fillTypeSelect($('modal-edit-item-type'), ['ingredient', 'household'], item.item_type);
+        } else if (kind === 'inventory') {
+            $('label-date').innerText = 'Date de péremption';
+            $('modal-edit-qty').value = item.quantity || '';
+            $('modal-edit-loc').value = item.location;
+            $('modal-edit-date').value = item.expiry_date || '';
+            fillTypeSelect($('modal-edit-item-type'), ['ingredient', 'recipe', 'household'], item.item_type);
+            fillRecipeSelect($('modal-edit-recipe'), item.recipe_id);
+            show('field-recipe-container', $('modal-edit-item-type').value === 'recipe');
+        } else if (kind === 'expense') {
+            $('label-extra').innerText = 'Montant (₪)';
+            $('label-date').innerText = 'Date';
+            $('modal-edit-extra').value = item.amount;
+            $('modal-edit-date').value = item.date;
+        }
+        modal('editModal').show();
+    }
+
+    $('modal-edit-item-type').addEventListener('change', () => {
+        const isInventory = $('modal-edit-type').value === 'inventory';
+        $('field-recipe-container').style.display =
+            (isInventory && $('modal-edit-item-type').value === 'recipe') ? 'block' : 'none';
+    });
+
     async function saveModalChanges() {
-        const type = document.getElementById('modal-edit-type').value;
-        const id = document.getElementById('modal-edit-id').value;
-        const name = document.getElementById('modal-edit-name').value;
-        
+        const kind = $('modal-edit-type').value;
+        const id = $('modal-edit-id').value;
+        const name = $('modal-edit-name').value;
         let url = '';
         let bodyData = {};
 
-        if (type === 'shopping') {
+        if (kind === 'shopping') {
             url = `/api/shopping/${id}`;
             bodyData = {
                 name: name,
-                quantity: document.getElementById('modal-edit-qty').value,
-                estimated_price: document.getElementById('modal-edit-extra').value,
-                bought: false
+                quantity: $('modal-edit-qty').value,
+                estimated_price: $('modal-edit-extra').value,
+                item_type: $('modal-edit-item-type').value
             };
-        } else if (type === 'inventory') {
+        } else if (kind === 'inventory') {
             url = `/api/inventory/${id}`;
+            const itemType = $('modal-edit-item-type').value;
             bodyData = {
-    name: name,
-    quantity: document.getElementById('modal-edit-qty').value,
-    location: document.getElementById('modal-edit-loc').value,
-    expiry_date: document.getElementById('modal-edit-date').value,
-    item_type: document.getElementById('modal-edit-item-type').value
-};
-        } else if (type === 'expense') {
+                name: name,
+                quantity: $('modal-edit-qty').value,
+                location: $('modal-edit-loc').value,
+                expiry_date: $('modal-edit-date').value,
+                item_type: itemType,
+                recipe_id: itemType === 'recipe' ? ($('modal-edit-recipe').value || null) : null
+            };
+        } else if (kind === 'expense') {
             url = `/api/expenses/${id}`;
             bodyData = {
                 description: name,
-                amount: document.getElementById('modal-edit-extra').value,
-                date: document.getElementById('modal-edit-date').value
+                amount: $('modal-edit-extra').value,
+                date: $('modal-edit-date').value
             };
         }
 
-        const response = await fetch(url, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(bodyData)
-        });
-
-        if (response.ok) {
-            editModal.hide();
-            if (type === 'shopping') loadShopping();
-            if (type === 'inventory') loadInventory();
-            if (type === 'expense') loadExpenses();
-        }
+        await api(url, 'PUT', bodyData);
+        modal('editModal').hide();
+        if (kind === 'shopping') loadShopping();
+        if (kind === 'inventory') loadInventory();
+        if (kind === 'expense') loadExpenses();
     }
 
-    // --- COURSES & TRI IA ---
+    // ---------- COURSES ----------
+    function shoppingRowHTML(item, indented) {
+        const price = Number(item.estimated_price || 0);
+        const bought = !!item.bought;
+        return `
+            <div class="form-check d-flex align-items-center gap-2">
+                <input class="form-check-input" type="checkbox" ${bought ? 'checked' : ''}
+                       onchange="onShoppingToggle(${item.id}, this)" aria-label="Acheté">
+                <label class="form-check-label ${bought ? 'bought-item' : ''}">
+                    ${typeIcon(item.item_type)} <strong>${esc(item.name)}</strong> ${item.quantity ? '(' + esc(item.quantity) + ')' : ''}
+                </label>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-light text-dark">${price.toFixed(2)} ₪</span>
+                <button class="btn btn-sm btn-outline-primary" onclick="editShopping(${item.id})">Modifier</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteShopping(${item.id})" aria-label="Supprimer">✕</button>
+            </div>`;
+    }
+
+    function appendShoppingRow(list, item, indented) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center' + (indented ? ' ps-4' : '');
+        li.innerHTML = shoppingRowHTML(item, indented);
+        list.appendChild(li);
+    }
+
+    function updateClearButton(items) {
+        $('btn-clear-bought').style.display = items.some(i => i.bought) ? 'inline-block' : 'none';
+    }
+
     async function loadShopping() {
         const res = await fetch('/api/shopping');
         const items = await res.json();
+        shoppingCache = items;
         renderShoppingList(items);
     }
 
-async function aiSortShopping() {
-    const list = document.getElementById('shopping-list');
-    list.innerHTML = '<li class="list-group-item text-center text-muted py-3">🤖 L\'IA analyse et trie ta liste...</li>';
-
-    try {
-        const res = await fetch('/api/shopping/ai-sort', { method: 'POST' });
-        const data = await res.json();
-        
-        // Dictionnaire local de secours (mode réduit intelligent)
-        const getLocalCategory = (name) => {
-            const n = name.toLowerCase();
-            if (['avocat', 'tomate', 'pomme', 'banane', 'salade', 'carotte', 'oignon', 'citron', 'concombre', 'courgette'].some(w => n.includes(w))) return '🍎 Fruits & Légumes';
-            if (['lait', 'cottage','beurre', 'fromage', 'yaourt', 'crème', 'œufs', 'oeuf', 'mozzarella'].some(w => n.includes(w))) return '🧀 Produits Frais & Laitiers';
-            if (['viande', 'poulet', 'bœuf', 'steak', 'jambon', 'poisson', 'saumon'].some(w => n.includes(w))) return '🥩 Boucherie & Poissonnerie';
-            if (['moutarde','pâtes', 'riz', 'farine', 'sucre', 'huile', 'cracottes', 'crackers', 'conserve', 'sauce', 'café', 'thé', 'chocolat', 'gâteau', 'pain'].some(w => n.includes(w))) return '🥫 Épicerie & Sec';
-            if (['papier', 'savon', 'shampoing', 'lessive', 'dentifrice', 'éponge', 'sac'].some(w => n.includes(w))) return '🧻 Hygiène & Entretien';
-            return '🛒 Autres Rayons';
-        };
-
-        let sortedCategories = {};
-        let allItems = data.items;
-        let isFallback = data.fallback;
-
-        if (isFallback) {
-            // Mode réduit : on trie localement avec le dictionnaire
-            allItems.forEach(item => {
-                const cat = getLocalCategory(item.name);
-                if (!sortedCategories[cat]) sortedCategories[cat] = [];
-                sortedCategories[cat].push(item.name);
-            });
-        } else {
-            // Mode IA réussi
-            let rawText = data.result.replace(/```json/g, '').replace(/```/g, '').trim();
-            sortedCategories = JSON.parse(rawText);
-        }
-
-        list.innerHTML = '';
-        let total = 0;
-
-        // Affichage d'un avertissement si on est en mode secours
-        if (isFallback) {
-            const alertLi = document.createElement('li');
-            alertLi.className = 'list-group-item alert alert-warning py-2 mb-2 small text-center';
-            alertLi.innerHTML = '⚠️ L\'IA n\'est pas dispo (surcharge), voici une version de tri en mode dégradé.';
-            list.appendChild(alertLi);
-        }
-
-        for (const [rayon, articleNames] of Object.entries(sortedCategories)) {
-            const matchingItems = allItems.filter(i => articleNames.map(n => n.toLowerCase()).includes(i.name.toLowerCase()));
-            
-            if (matchingItems.length > 0) {
-                const headerLi = document.createElement('li');
-                headerLi.className = 'list-group-item bg-light text-success fw-bold small text-uppercase py-1';
-                headerLi.innerText = rayon;
-                list.appendChild(headerLi);
-
-                matchingItems.forEach(item => {
-                    if (!item.bought) total += item.estimated_price;
-                    const li = document.createElement('li');
-                    li.className = 'list-group-item d-flex justify-content-between align-items-center ps-4';
-                    li.innerHTML = `
-                        <div class="form-check d-flex align-items-center gap-2">
-                            <input class="form-check-input" type="checkbox" ${item.bought ? 'checked' : ''} onchange="toggleBought(${item.id}, this.checked)">
-                            <label class="form-check-label ${item.bought ? 'bought-item' : ''}">
-                                <strong>${item.name}</strong> ${item.quantity ? '(' + item.quantity + ')' : ''}
-                            </label>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-light text-dark">${item.estimated_price.toFixed(2)} ₪</span>
-                            <button class="btn btn-sm btn-outline-primary" onclick="openEditModal('shopping', ${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}', ${item.estimated_price})">Modifier</button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteShopping(${item.id})">✕</button>
-                        </div>
-                    `;
-                    list.appendChild(li);
-                });
-            }
-        }
-        document.getElementById('total-estimated').innerText = total.toFixed(2) + ' ₪';
-    } catch (err) {
-        console.error(err);
-        loadShopping();
-    }
-}
-
     function renderShoppingList(items) {
-        const list = document.getElementById('shopping-list');
+        const list = $('shopping-list');
         list.innerHTML = '';
         let total = 0;
 
+        if (items.length === 0) {
+            list.innerHTML = '<li class="list-group-item text-center text-muted py-3">Ta liste est vide. Ajoute un premier article ci-dessus.</li>';
+        }
         items.forEach(item => {
-            if (!item.bought) total += item.estimated_price;
-            const li = document.createElement('li');
-            li.className = 'list-group-item d-flex justify-content-between align-items-center';
-            li.innerHTML = `
-                <div class="form-check d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" ${item.bought ? 'checked' : ''} onchange="toggleBought(${item.id}, this.checked)">
-                    <label class="form-check-label ${item.bought ? 'bought-item' : ''}">
-                        <strong>${item.name}</strong> ${item.quantity ? '(' + item.quantity + ')' : ''}
-                    </label>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-light text-dark">${item.estimated_price.toFixed(2)} ₪</span>
-                    <button class="btn btn-sm btn-outline-primary" onclick="openEditModal('shopping', ${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}', ${item.estimated_price})">Modifier</button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteShopping(${item.id})">✕</button>
-                </div>
-            `;
-            list.appendChild(li);
+            if (!item.bought) total += Number(item.estimated_price || 0);
+            appendShoppingRow(list, item, false);
         });
-        document.getElementById('total-estimated').innerText = total.toFixed(2) + ' ₪';
+        updateClearButton(items);
+        $('total-estimated').innerText = total.toFixed(2) + ' ₪';
     }
 
-    document.getElementById('form-shopping').addEventListener('submit', async (e) => {
+    $('form-shopping').addEventListener('submit', async (e) => {
         e.preventDefault();
-        await fetch('/api/shopping', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-    name: document.getElementById('shop-name').value,
-    quantity: document.getElementById('shop-qty').value,
-    estimated_price: document.getElementById('shop-price').value,
-    item_type: document.getElementById('shop-type').value
-})
+        await api('/api/shopping', 'POST', {
+            name: $('shop-name').value,
+            quantity: $('shop-qty').value,
+            estimated_price: $('shop-price').value,
+            item_type: $('shop-type').value
         });
         e.target.reset();
         loadShopping();
     });
 
-    async function toggleBought(id, bought) {
-        await fetch(`/api/shopping/${id}`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({bought: bought ? 1 : 0})
-        });
-        loadShopping();
+    function editShopping(id) {
+        const item = shoppingCache.find(i => i.id === id);
+        if (item) openEditModal('shopping', item);
     }
 
     async function deleteShopping(id) {
-        await fetch(`/api/shopping/${id}`, {method: 'DELETE'});
+        await api(`/api/shopping/${id}`, 'DELETE');
         loadShopping();
     }
 
-    // --- STOCKS ---
+    async function clearBought() {
+        const count = shoppingCache.filter(i => i.bought).length;
+        if (!confirm(`Retirer ${count} article(s) acheté(s) de la liste ?\n(Ils restent dans le stock.)`)) return;
+        await api('/api/shopping/clear-bought', 'DELETE');
+        loadShopping();
+    }
+
+    // Cochage : on demande l'emplacement, puis l'article est ajouté au stock
+    let pendingBuy = null; // { id, checkbox, confirmed }
+
+    async function onShoppingToggle(id, checkbox) {
+        const item = shoppingCache.find(i => i.id === id);
+        if (!item) return;
+
+        if (checkbox.checked) {
+            pendingBuy = { id, checkbox, confirmed: false };
+            $('buy-item-name').innerText = item.name + (item.quantity ? ' (' + item.quantity + ')' : '');
+            $('buy-loc').value = item.item_type === 'household' ? 'Placard' : 'Frigo';
+            $('buy-date').value = '';
+            modal('buyModal').show();
+        } else {
+            if (item.inventory_id && !confirm(`Annuler l'achat de "${item.name}" ?\nIl sera aussi retiré du stock.`)) {
+                checkbox.checked = true;
+                return;
+            }
+            await api(`/api/shopping/${id}/unbuy`, 'POST');
+            loadShopping();
+            loadInventory();
+        }
+    }
+
+    async function confirmBuy() {
+        if (!pendingBuy) return;
+        pendingBuy.confirmed = true;
+        const id = pendingBuy.id;
+        await api(`/api/shopping/${id}/buy`, 'POST', {
+            location: $('buy-loc').value,
+            expiry_date: $('buy-date').value
+        });
+        modal('buyModal').hide();
+        showToast('Ajouté au stock ✔');
+        loadShopping();
+        loadInventory();
+    }
+
+    // Fermeture sans validation : on décoche la case
+    $('buyModal').addEventListener('hidden.bs.modal', () => {
+        if (pendingBuy && !pendingBuy.confirmed) pendingBuy.checkbox.checked = false;
+        pendingBuy = null;
+    });
+
+    // ---------- TRI PAR IA ----------
+    async function aiSortShopping() {
+        const list = $('shopping-list');
+        list.innerHTML = '<li class="list-group-item text-center text-muted py-3">🤖 L\'IA analyse et trie ta liste...</li>';
+
+        try {
+            const res = await fetch('/api/shopping/ai-sort', { method: 'POST' });
+            const data = await res.json();
+
+            if (!data.items) { loadShopping(); return; }
+
+            // Dictionnaire local de secours (mode réduit)
+            const getLocalCategory = (name) => {
+                const n = name.toLowerCase();
+                if (['avocat', 'tomate', 'pomme', 'banane', 'salade', 'carotte', 'oignon', 'citron', 'concombre', 'courgette'].some(w => n.includes(w))) return '🍎 Fruits & Légumes';
+                if (['lait', 'cottage','beurre', 'fromage', 'yaourt', 'crème', 'œufs', 'oeuf', 'mozzarella'].some(w => n.includes(w))) return '🧀 Produits Frais & Laitiers';
+                if (['viande', 'poulet', 'bœuf', 'steak', 'jambon', 'poisson', 'saumon'].some(w => n.includes(w))) return '🥩 Boucherie & Poissonnerie';
+                if (['moutarde','pâtes', 'riz', 'farine', 'sucre', 'huile', 'cracottes', 'crackers', 'conserve', 'sauce', 'café', 'thé', 'chocolat', 'gâteau', 'pain'].some(w => n.includes(w))) return '🥫 Épicerie & Sec';
+                if (['papier', 'savon', 'shampoing', 'lessive', 'dentifrice', 'éponge', 'sac'].some(w => n.includes(w))) return '🧻 Hygiène & Entretien';
+                return '🛒 Autres Rayons';
+            };
+
+            let sortedCategories = {};
+            const allItems = data.items;
+
+            if (data.fallback) {
+                allItems.forEach(item => {
+                    const cat = getLocalCategory(item.name);
+                    if (!sortedCategories[cat]) sortedCategories[cat] = [];
+                    sortedCategories[cat].push(item.name);
+                });
+            } else {
+                const rawText = data.result.replace(/```json/g, '').replace(/```/g, '').trim();
+                sortedCategories = JSON.parse(rawText);
+            }
+
+            // Les articles déjà achetés restent visibles (barrés) en bas de liste
+            const allRes = await fetch('/api/shopping');
+            shoppingCache = await allRes.json();
+            const boughtItems = shoppingCache.filter(i => i.bought);
+
+            list.innerHTML = '';
+            let total = 0;
+
+            if (data.fallback) {
+                const alertLi = document.createElement('li');
+                alertLi.className = 'list-group-item alert alert-warning py-2 mb-2 small text-center';
+                alertLi.innerHTML = '⚠️ L\'IA n\'est pas dispo (surcharge), voici une version de tri en mode dégradé.';
+                list.appendChild(alertLi);
+            }
+
+            for (const [rayon, articleNames] of Object.entries(sortedCategories)) {
+                const names = articleNames.map(n => String(n).toLowerCase());
+                const matchingItems = allItems.filter(i => names.includes(i.name.toLowerCase()));
+
+                if (matchingItems.length > 0) {
+                    const headerLi = document.createElement('li');
+                    headerLi.className = 'list-group-item bg-light text-success fw-bold small text-uppercase py-1';
+                    headerLi.innerText = rayon;
+                    list.appendChild(headerLi);
+
+                    matchingItems.forEach(item => {
+                        total += Number(item.estimated_price || 0);
+                        appendShoppingRow(list, item, true);
+                    });
+                }
+            }
+
+            if (boughtItems.length > 0) {
+                const headerLi = document.createElement('li');
+                headerLi.className = 'list-group-item bg-light text-muted fw-bold small text-uppercase py-1';
+                headerLi.innerText = '✅ Déjà acheté';
+                list.appendChild(headerLi);
+                boughtItems.forEach(item => appendShoppingRow(list, item, true));
+            }
+
+            updateClearButton(shoppingCache);
+            $('total-estimated').innerText = total.toFixed(2) + ' ₪';
+        } catch (err) {
+            console.error(err);
+            loadShopping();
+        }
+    }
+
+    // ---------- STOCKS ----------
     async function loadInventory() {
         const res = await fetch('/api/inventory');
-        const items = await res.json();
-        const container = document.getElementById('inventory-list');
+        inventoryCache = await res.json();
+        const container = $('inventory-list');
         container.innerHTML = '';
 
-        items.forEach(item => {
+        if (inventoryCache.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-3">Le stock est vide. Coche un article dans les courses ou ajoute-en un ci-dessus.</div>';
+            return;
+        }
+
+        inventoryCache.forEach(item => {
             let badgeClass = 'badge-frigo';
             if (item.location === 'Congélateur') badgeClass = 'badge-congel';
             if (item.location === 'Placard') badgeClass = 'badge-placard';
+
+            const recipeInfo = item.item_type === 'recipe'
+                ? (item.recipe_name
+                    ? `<small class="text-success d-block ms-1">📖 Recette : ${esc(item.recipe_name)}</small>`
+                    : `<small class="text-muted d-block ms-1">Aucune recette associée</small>`)
+                : '';
 
             const card = document.createElement('div');
             card.className = 'card p-2 mb-2 d-flex flex-row justify-content-between align-items-center';
             card.innerHTML = `
                 <div>
-                    <span class="badge ${badgeClass} me-2">${item.location}</span>
-                    <strong>
-${
-item.item_type === 'recipe'
-    ? '🍲'
-    : item.item_type === 'household'
-        ? '🧴'
-        : '🥕'
-}
-${item.name}
-</strong>
- ${item.quantity ? '- ' + item.quantity : ''}
-                    ${item.expiry_date ? `<small class="text-muted d-block ms-1">Péremption : ${item.expiry_date}</small>` : ''}
+                    <span class="badge ${badgeClass} me-2">${esc(item.location)}</span>
+                    <strong>${typeIcon(item.item_type)} ${esc(item.name)}</strong>
+                    ${item.quantity ? '- ' + esc(item.quantity) : ''}
+                    ${item.expiry_date ? `<small class="text-muted d-block ms-1">Péremption : ${esc(item.expiry_date)}</small>` : ''}
+                    ${recipeInfo}
                 </div>
                 <div class="d-flex gap-1">
-                    <button class="btn btn-sm btn-outline-primary" onclick="openEditModal('inventory', ${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}', '${item.location}', '${item.expiry_date || ''}')">Modifier</button>
-                    <button class="btn btn-sm btn-outline-warning text-dark fw-semibold" onclick="finishInventory(${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.quantity || ''}')">Fini</button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="editInventory(${item.id})">Modifier</button>
+                    <button class="btn btn-sm btn-outline-warning text-dark fw-semibold" onclick="finishInventory(${item.id})">Fini</button>
                 </div>
             `;
             container.appendChild(card);
         });
     }
 
-    document.getElementById('form-inventory').addEventListener('submit', async (e) => {
+    // Le choix de recette n'apparaît que pour un plat préparé
+    $('inv-type').addEventListener('change', () => {
+        const isRecipe = $('inv-type').value === 'recipe';
+        $('inv-recipe-container').style.display = isRecipe ? 'block' : 'none';
+        if (isRecipe) fillRecipeSelect($('inv-recipe'), null);
+    });
+
+    $('form-inventory').addEventListener('submit', async (e) => {
         e.preventDefault();
-        await fetch('/api/inventory', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                name: document.getElementById('inv-name').value,
-                quantity: document.getElementById('inv-qty').value,
-                location: document.getElementById('inv-loc').value,
-                expiry_date: document.getElementById('inv-date').value,
-				item_type: document.getElementById('inv-type').value,
-				recipe_id: null
-            })
+        const itemType = $('inv-type').value;
+        await api('/api/inventory', 'POST', {
+            name: $('inv-name').value,
+            quantity: $('inv-qty').value,
+            location: $('inv-loc').value,
+            expiry_date: $('inv-date').value,
+            item_type: itemType,
+            recipe_id: itemType === 'recipe' ? ($('inv-recipe').value || null) : null
         });
         e.target.reset();
+        $('inv-recipe-container').style.display = 'none';
         loadInventory();
     });
 
-    async function finishInventory(id, name, quantity) {
-        const addToShopping = confirm(`"${name}" est terminé.\n\nSouhaitez-vous l'ajouter automatiquement à votre liste de courses ?`);
-        if (addToShopping) {
-            await fetch('/api/shopping', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name: name, quantity: quantity, estimated_price: 0})
-            });
+    function editInventory(id) {
+        const item = inventoryCache.find(i => i.id === id);
+        if (item) openEditModal('inventory', item);
+    }
+
+    // Fin d'un article : on propose de racheter (ingrédients de la recette pour un plat préparé)
+    let pendingFinish = null; // { id, entries }
+
+    async function finishInventory(id) {
+        const item = inventoryCache.find(i => i.id === id);
+        if (!item) return;
+
+        let entries = [];
+        let intro = '';
+
+        if (item.item_type === 'recipe') {
+            if (item.recipe_id) {
+                const names = await api(`/api/recipes/${item.recipe_id}/ingredients`);
+                entries = names.map(n => ({ name: n, quantity: '', item_type: 'ingredient' }));
+                intro = entries.length
+                    ? `Cochez les ingrédients de « ${item.recipe_name || 'la recette'} » à racheter :`
+                    : 'Cette recette n\'a pas d\'ingrédients enregistrés.';
+            } else {
+                intro = 'Ce plat n\'est associé à aucune recette : rien à racheter.';
+            }
+        } else {
+            entries = [{ name: item.name, quantity: item.quantity || '', item_type: item.item_type }];
+            intro = 'Voulez-vous le remettre dans la liste de courses ?';
         }
-        await fetch(`/api/inventory/${id}`, {method: 'DELETE'});
+
+        pendingFinish = { id, entries };
+        $('restock-title').innerText = `« ${item.name} » est terminé`;
+        $('restock-intro').innerText = intro;
+        $('restock-list').innerHTML = entries.map((e, i) => `
+            <div class="form-check mb-1">
+                <input class="form-check-input restock-check" type="checkbox" id="restock-${i}" data-index="${i}" checked>
+                <label class="form-check-label" for="restock-${i}">${typeIcon(e.item_type)} ${esc(e.name)} ${e.quantity ? '(' + esc(e.quantity) + ')' : ''}</label>
+            </div>`).join('');
+        $('restock-confirm').innerText = entries.length ? 'Terminer et mettre à jour les courses' : 'Terminer';
+        modal('restockModal').show();
+    }
+
+    async function confirmRestock() {
+        if (!pendingFinish) return;
+        const restock = [...document.querySelectorAll('.restock-check')]
+            .filter(c => c.checked)
+            .map(c => pendingFinish.entries[Number(c.dataset.index)]);
+
+        const result = await api(`/api/inventory/${pendingFinish.id}/finish`, 'POST', { restock });
+        pendingFinish = null;
+        modal('restockModal').hide();
+
+        let message = 'Retiré du stock.';
+        if (result.added.length) message += ` ${result.added.length} article(s) ajouté(s) aux courses.`;
+        if (result.skipped.length) message += ` ${result.skipped.length} déjà dans la liste.`;
+        showToast(message);
         loadInventory();
         loadShopping();
     }
 
-    // --- BUDGET ---
+    // ---------- RECETTES ----------
+    async function loadRecipes() {
+        const res = await fetch('/api/recipes');
+        recipesCache = await res.json();
+        const container = $('recipe-list');
+        container.innerHTML = '';
+
+        if (recipesCache.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-3">Aucune recette pour l\'instant. Crée la première ou importe une liste de recettes.</div>';
+        }
+
+        recipesCache.forEach(recipe => {
+            const chips = recipe.ingredients.length
+                ? recipe.ingredients.map(i => `<span class="badge ingredient-chip me-1 mb-1">${esc(i)}</span>`).join('')
+                : '<small class="text-muted">Aucun ingrédient</small>';
+            const card = document.createElement('div');
+            card.className = 'card p-3 mb-2';
+            card.innerHTML = `
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <strong>🍲 ${esc(recipe.name)}</strong>
+                        <div class="mt-2">${chips}</div>
+                    </div>
+                    <div class="d-flex gap-1 flex-shrink-0">
+                        <button class="btn btn-sm btn-outline-primary" onclick="openRecipeModal(${recipe.id})">Modifier</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteRecipe(${recipe.id})" aria-label="Supprimer">✕</button>
+                    </div>
+                </div>`;
+            container.appendChild(card);
+        });
+    }
+
+    function openRecipeModal(id) {
+        const recipe = id ? recipesCache.find(r => r.id === id) : null;
+        $('recipe-modal-title').innerText = recipe ? 'Modifier la recette' : 'Nouvelle recette';
+        $('recipe-edit-id').value = recipe ? recipe.id : '';
+        $('recipe-edit-name').value = recipe ? recipe.name : '';
+        $('recipe-edit-ingredients').value = recipe ? recipe.ingredients.join('\n') : '';
+        modal('recipeModal').show();
+    }
+
+    async function saveRecipe() {
+        const id = $('recipe-edit-id').value;
+        const name = $('recipe-edit-name').value.trim();
+        if (!name) { showToast('Donne un nom à la recette.'); return; }
+
+        const body = {
+            name: name,
+            ingredients: $('recipe-edit-ingredients').value.split('\n')
+        };
+        if (id) await api(`/api/recipes/${id}`, 'PUT', body);
+        else await api('/api/recipes', 'POST', body);
+
+        modal('recipeModal').hide();
+        showToast('Recette enregistrée ✔');
+        await loadRecipes();
+        loadInventory();
+    }
+
+    async function deleteRecipe(id) {
+        const recipe = recipesCache.find(r => r.id === id);
+        if (!confirm(`Supprimer la recette "${recipe ? recipe.name : ''}" ?\nLes plats en stock liés à cette recette seront conservés, sans recette associée.`)) return;
+        await api(`/api/recipes/${id}`, 'DELETE');
+        await loadRecipes();
+        loadInventory();
+    }
+
+    function openImportModal() {
+        $('import-text').value = '';
+        $('import-result').innerHTML = '';
+        modal('importModal').show();
+    }
+
+    async function importRecipes() {
+        const text = $('import-text').value;
+        if (!text.trim()) { showToast('Colle d\'abord le texte à importer.'); return; }
+
+        const result = await api('/api/recipes/import', 'POST', { text });
+        let html = `<div class="text-success">✔ ${result.imported.length} recette(s) importée(s).</div>`;
+        if (result.skipped.length) {
+            html += `<div class="text-muted">Déjà existantes, ignorées : ${result.skipped.map(esc).join(', ')}.</div>`;
+        }
+        $('import-result').innerHTML = html;
+        $('import-text').value = '';
+        loadRecipes();
+    }
+
+    // ---------- BUDGET ----------
     async function loadExpenses() {
         const res = await fetch('/api/expenses');
         const items = await res.json();
-        const list = document.getElementById('expense-list');
+        expenseCache = items;
+        const list = $('expense-list');
         list.innerHTML = '';
-        
+
         const currentMonth = new Date().toISOString().slice(0, 7);
         let monthlyTotal = 0;
 
@@ -525,42 +909,44 @@ ${item.name}
             li.className = 'list-group-item d-flex justify-content-between align-items-center';
             li.innerHTML = `
                 <div>
-                    <strong>${item.description}</strong>
-                    <small class="text-muted d-block">${item.date}</small>
+                    <strong>${esc(item.description)}</strong>
+                    <small class="text-muted d-block">${esc(item.date)}</small>
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     <span class="fw-bold">${item.amount.toFixed(2)} ₪</span>
-                    <button class="btn btn-sm btn-outline-primary" onclick="openEditModal('expense', ${item.id}, '${item.description.replace(/'/g, "\\'")}', ${item.amount}, '${item.date}')">Modifier</button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteExpense(${item.id})">✕</button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="editExpense(${item.id})">Modifier</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteExpense(${item.id})" aria-label="Supprimer">✕</button>
                 </div>
             `;
             list.appendChild(li);
         });
-        document.getElementById('monthly-total').innerText = monthlyTotal.toFixed(2) + ' ₪';
+        $('monthly-total').innerText = monthlyTotal.toFixed(2) + ' ₪';
     }
 
-    document.getElementById('form-expense').addEventListener('submit', async (e) => {
+    $('form-expense').addEventListener('submit', async (e) => {
         e.preventDefault();
-        await fetch('/api/expenses', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                description: document.getElementById('exp-desc').value,
-                amount: document.getElementById('exp-amount').value,
-                date: document.getElementById('exp-date').value
-            })
+        await api('/api/expenses', 'POST', {
+            description: $('exp-desc').value,
+            amount: $('exp-amount').value,
+            date: $('exp-date').value
         });
         e.target.reset();
         loadExpenses();
     });
 
+    function editExpense(id) {
+        const item = expenseCache.find(i => i.id === id);
+        if (item) openEditModal('expense', item);
+    }
+
     async function deleteExpense(id) {
-        await fetch(`/api/expenses/${id}`, {method: 'DELETE'});
+        await api(`/api/expenses/${id}`, 'DELETE');
         loadExpenses();
     }
 
-    // Initialisation
+    // ---------- INITIALISATION ----------
     loadShopping();
+    loadRecipes();
     loadInventory();
     loadExpenses();
 </script>
