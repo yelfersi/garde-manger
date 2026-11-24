@@ -438,7 +438,8 @@
     let expenseCache = [];
     let recipesCache = [];
     let termsCache = [];
-    let termIndex = new Map();
+    let exactIndex = new Map();   // mot exact -> terme
+    let stemIndex = new Map();    // mot sans pluriel -> terme
     let displayMode = 'both';
     try { displayMode = localStorage.getItem('displayMode') || 'both'; } catch (e) {}
 
@@ -451,26 +452,51 @@
     }
     const HEBREW_RE = /[\u0590-\u05FF]/;
 
-    function findTerm(name) { return termIndex.get(norm(name)) || null; }
-    // Clé de comparaison : « lait » et « חלב » donnent la même clé
-    function itemKey(name) { const t = findTerm(name); return t ? 't' + t.id : 'n' + norm(name); }
+    // Ramène un mot à une forme sans pluriel : doit rester identique à stem_word() dans app.py
+    function stemWord(w) {
+        if (/^[\u05d0-\u05ea]+$/.test(w)) {
+            // Hébreu : lettres finales ramenées à la forme normale (אדום = אדומים)
+            w = w.replace(/\u05da/g, '\u05db').replace(/\u05dd/g, '\u05de').replace(/\u05df/g, '\u05e0')
+                 .replace(/\u05e3/g, '\u05e4').replace(/\u05e5/g, '\u05e6');
+            if (w.length >= 5 && (w.endsWith('\u05d9\u05de') || w.endsWith('\u05d5\u05ea'))) w = w.slice(0, -2);   // -ים / -ות
+            else if (w.length >= 4 && w.endsWith('\u05d4')) w = w.slice(0, -1);                                   // -ה (עגבנייה / עגבניות)
+            else if (w.length >= 5 && w.endsWith('\u05d9\u05ea')) w = w.slice(0, -1);                            // -ית (צנונית / צנוניות)
+            return w.replace(/\u05d9\u05d9/g, '\u05d9');
+        }
+        if (/^[a-z]+$/.test(w) && w.length >= 4 && /[sx]$/.test(w) && !w.endsWith('ss')) return w.slice(0, -1);  // tomates, gâteaux, œufs
+        return w;
+    }
+    function stem(s) { return norm(s).split(/[\s\-']+/).filter(Boolean).map(stemWord).join(' '); }
+
+    // Mot exact d'abord, puis mot sans pluriel
+    function findTerm(name) { return exactIndex.get(norm(name)) || stemIndex.get(stem(name)) || null; }
+    // Clé de comparaison : « lait », « חלב » (et « tomate » / « tomates ») donnent la même clé
+    function itemKey(name) { const t = findTerm(name); return t ? 't' + t.id : 'n' + stem(name); }
 
     // HTML d'un nom de produit, selon le mode d'affichage choisi
     function displayName(name) {
         const t = findTerm(name);
         if (!t || !t.fr || !t.he) return `<bdi>${esc(name)}</bdi>`;
-        if (displayMode === 'fr') return `<bdi>${esc(t.fr)}</bdi>`;
-        if (displayMode === 'he') return `<bdi>${esc(t.he)}</bdi>`;
-        return `<bdi>${esc(t.fr)}</bdi> <span class="text-muted fw-normal">· <bdi>${esc(t.he)}</bdi></span>`;
+        // Le mot saisi est gardé tel quel dans sa langue (pluriel compris) ; l'autre langue vient du glossaire
+        const typedHebrew = HEBREW_RE.test(name);
+        const fr = typedHebrew ? t.fr : name;
+        const he = typedHebrew ? name : t.he;
+        if (displayMode === 'fr') return `<bdi>${esc(fr)}</bdi>`;
+        if (displayMode === 'he') return `<bdi>${esc(he)}</bdi>`;
+        return `<bdi>${esc(fr)}</bdi> <span class="text-muted fw-normal">· <bdi>${esc(he)}</bdi></span>`;
     }
 
     async function loadTerms() {
         const res = await fetch('/api/terms');
         termsCache = await res.json();
-        termIndex = new Map();
+        exactIndex = new Map();
+        stemIndex = new Map();
         termsCache.forEach(t => {
-            if (t.fr) termIndex.set(norm(t.fr), t);
-            if (t.he) termIndex.set(norm(t.he), t);
+            [t.fr, t.he].forEach(word => {
+                if (!word) return;
+                exactIndex.set(norm(word), t);
+                if (!stemIndex.has(stem(word))) stemIndex.set(stem(word), t);
+            });
         });
         // Suggestions à la saisie : chaque mot est proposé avec sa traduction
         $('terms-list').innerHTML = termsCache.flatMap(t => {
@@ -1065,8 +1091,8 @@
         // Articles utilisés mais absents du glossaire (les plats préparés ne sont pas des produits)
         const unknown = new Map();
         const consider = name => {
-            const key = norm(name);
-            if (key && !termIndex.has(key) && !unknown.has(key)) unknown.set(key, name);
+            const key = stem(name);
+            if (key && !findTerm(name) && !unknown.has(key)) unknown.set(key, name);
         };
         shoppingCache.forEach(i => consider(i.name));
         inventoryCache.filter(i => i.item_type !== 'recipe').forEach(i => consider(i.name));
