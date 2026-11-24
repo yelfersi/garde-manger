@@ -52,10 +52,10 @@
             <div class="card p-3">
                 <form id="form-shopping" class="row g-2">
                     <div class="col-12 col-md-4">
-                        <input type="text" id="shop-name" class="form-control" placeholder="Article (ex: Lait)" required>
+                        <input type="text" id="shop-name" dir="auto" class="form-control" placeholder="Article (ex: Lait)" required>
                     </div>
                     <div class="col-6 col-md-2">
-                        <input type="text" id="shop-qty" class="form-control" placeholder="Qté (ex: 2L)">
+                        <input type="text" id="shop-qty" dir="auto" class="form-control" placeholder="Qté (ex: 2L)">
                     </div>
                     <div class="col-6 col-md-3">
                         <select id="shop-type" class="form-select">
@@ -91,10 +91,10 @@
             <div class="card p-3">
                 <form id="form-inventory" class="row g-2">
                     <div class="col-12 col-md-3">
-                        <input type="text" id="inv-name" class="form-control" placeholder="Produit (ex: Pâtes)" required>
+                        <input type="text" id="inv-name" dir="auto" class="form-control" placeholder="Produit (ex: Pâtes)" required>
                     </div>
                     <div class="col-6 col-md-2">
-                        <input type="text" id="inv-qty" class="form-control" placeholder="Qté">
+                        <input type="text" id="inv-qty" dir="auto" class="form-control" placeholder="Qté">
                     </div>
                     <div class="col-6 col-md-3">
                         <select id="inv-type" class="form-select">
@@ -145,7 +145,7 @@
             <div class="card p-3">
                 <form id="form-expense" class="row g-2">
                     <div class="col-12 col-md-5">
-                        <input type="text" id="exp-desc" class="form-control" placeholder="Magasin / Détail (ex: Rami Levy)" required>
+                        <input type="text" id="exp-desc" dir="auto" class="form-control" placeholder="Magasin / Détail (ex: Rami Levy)" required>
                     </div>
                     <div class="col-6 col-md-3">
                         <input type="number" step="0.01" id="exp-amount" class="form-control" placeholder="Montant ₪" required>
@@ -179,11 +179,11 @@
 
                 <div class="mb-3">
                     <label class="form-label text-muted small">Nom</label>
-                    <input type="text" id="modal-edit-name" class="form-control">
+                    <input type="text" id="modal-edit-name" dir="auto" class="form-control">
                 </div>
                 <div class="mb-3" id="field-qty-container">
                     <label class="form-label text-muted small">Quantité</label>
-                    <input type="text" id="modal-edit-qty" class="form-control">
+                    <input type="text" id="modal-edit-qty" dir="auto" class="form-control">
                 </div>
                 <div class="mb-3" id="field-extra-container">
                     <label class="form-label text-muted small" id="label-extra">Prix ₪</label>
@@ -227,7 +227,7 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
             </div>
             <div class="modal-body">
-                <p class="mb-3">Où rangez-vous <strong id="buy-item-name"></strong> ?</p>
+                <p class="mb-3">Où rangez-vous <strong id="buy-item-name" dir="auto"></strong> ?</p>
                 <div class="mb-3">
                     <label class="form-label text-muted small">Emplacement</label>
                     <select id="buy-loc" class="form-select">
@@ -281,11 +281,11 @@
                 <input type="hidden" id="recipe-edit-id">
                 <div class="mb-3">
                     <label class="form-label text-muted small">Nom de la recette</label>
-                    <input type="text" id="recipe-edit-name" class="form-control" placeholder="ex : Gratin dauphinois">
+                    <input type="text" id="recipe-edit-name" dir="auto" class="form-control" placeholder="ex : Gratin dauphinois">
                 </div>
                 <div class="mb-2">
                     <label class="form-label text-muted small">Ingrédients (un par ligne)</label>
-                    <textarea id="recipe-edit-ingredients" class="form-control" rows="8" placeholder="pommes de terre&#10;crème&#10;ail"></textarea>
+                    <textarea id="recipe-edit-ingredients" dir="auto" class="form-control" rows="8" placeholder="pommes de terre&#10;crème&#10;ail"></textarea>
                 </div>
             </div>
             <div class="modal-footer">
@@ -311,7 +311,7 @@
                     Écriture en une ligne possible : <em>Soupe : carotte, poireau, oignon</em>.
                     Les recettes dont le nom existe déjà sont ignorées.
                 </p>
-                <textarea id="import-text" class="form-control font-monospace small" rows="12" placeholder="Gratin dauphinois&#10;- pommes de terre&#10;- crème&#10;- ail&#10;&#10;Soupe de légumes&#10;- carotte&#10;- poireau"></textarea>
+                <textarea id="import-text" dir="auto" class="form-control font-monospace small" rows="12" placeholder="Gratin dauphinois&#10;- pommes de terre&#10;- crème&#10;- ail&#10;&#10;Soupe de légumes&#10;- carotte&#10;- poireau"></textarea>
                 <div id="import-result" class="small mt-2"></div>
             </div>
             <div class="modal-footer">
@@ -477,7 +477,7 @@
                 <input class="form-check-input" type="checkbox" ${bought ? 'checked' : ''}
                        onchange="onShoppingToggle(${item.id}, this)" aria-label="Acheté">
                 <label class="form-check-label ${bought ? 'bought-item' : ''}">
-                    ${typeIcon(item.item_type)} <strong>${esc(item.name)}</strong> ${item.quantity ? '(' + esc(item.quantity) + ')' : ''}
+                    ${typeIcon(item.item_type)} <strong><bdi>${esc(item.name)}</bdi></strong> ${item.quantity ? '(<bdi>' + esc(item.quantity) + '</bdi>)' : ''}
                 </label>
             </div>
             <div class="d-flex align-items-center gap-2">
@@ -608,11 +608,11 @@
             // Dictionnaire local de secours (mode réduit)
             const getLocalCategory = (name) => {
                 const n = name.toLowerCase();
-                if (['avocat', 'tomate', 'pomme', 'banane', 'salade', 'carotte', 'oignon', 'citron', 'concombre', 'courgette'].some(w => n.includes(w))) return '🍎 Fruits & Légumes';
-                if (['lait', 'cottage','beurre', 'fromage', 'yaourt', 'crème', 'œufs', 'oeuf', 'mozzarella'].some(w => n.includes(w))) return '🧀 Produits Frais & Laitiers';
-                if (['viande', 'poulet', 'bœuf', 'steak', 'jambon', 'poisson', 'saumon'].some(w => n.includes(w))) return '🥩 Boucherie & Poissonnerie';
-                if (['moutarde','pâtes', 'riz', 'farine', 'sucre', 'huile', 'cracottes', 'crackers', 'conserve', 'sauce', 'café', 'thé', 'chocolat', 'gâteau', 'pain'].some(w => n.includes(w))) return '🥫 Épicerie & Sec';
-                if (['papier', 'savon', 'shampoing', 'lessive', 'dentifrice', 'éponge', 'sac'].some(w => n.includes(w))) return '🧻 Hygiène & Entretien';
+                if (['avocat', 'tomate', 'pomme', 'banane', 'salade', 'carotte', 'oignon', 'citron', 'concombre', 'courgette', 'עגבני', 'מלפפון', 'בצל', 'גזר', 'תפוח', 'בננה', 'אבוקדו', 'לימון', 'חסה', 'קישוא', 'תפוז', 'פלפל', 'שום', 'פטרוזיליה', 'כוסברה', 'ירקות', 'פירות'].some(w => n.includes(w))) return '🍎 Fruits & Légumes';
+                if (['lait', 'cottage','beurre', 'fromage', 'yaourt', 'crème', 'œufs', 'oeuf', 'mozzarella', 'חלב', 'קוטג', 'גבינה', 'יוגורט', 'חמאה', 'שמנת', 'ביצים', 'ביצה', 'מוצרלה', 'לבנה', 'מעדן'].some(w => n.includes(w))) return '🧀 Produits Frais & Laitiers';
+                if (['viande', 'poulet', 'bœuf', 'steak', 'jambon', 'poisson', 'saumon', 'בשר', 'עוף', 'חזה', 'סטייק', 'נקניק', 'שניצל', 'דגים', 'סלמון', 'טונה', 'בקר', 'הודו', 'כבד'].some(w => n.includes(w)) || n.split(/\s+/).includes('דג')) return '🥩 Boucherie & Poissonnerie';
+                if (['moutarde','pâtes', 'riz', 'farine', 'sucre', 'huile', 'cracottes', 'crackers', 'conserve', 'sauce', 'café', 'thé', 'chocolat', 'gâteau', 'pain', 'פסטה', 'אורז', 'קמח', 'סוכר', 'שמן', 'רוטב', 'קפה', 'תה', 'שוקולד', 'עוגיות', 'לחם', 'חומוס', 'טחינה', 'עדשים', 'שימורים', 'חרדל', 'קורנפלקס', 'דגנים', 'פתיתים', 'קרקר', 'ממרח', 'מלח', 'תבלין'].some(w => n.includes(w))) return '🥫 Épicerie & Sec';
+                if (['papier', 'savon', 'shampoing', 'lessive', 'dentifrice', 'éponge', 'sac', 'נייר', 'סבון', 'שמפו', 'כביסה', 'משחת שיניים', 'ספוג', 'שקית', 'שקיות', 'מנקה', 'אקונומיקה', 'חיתולים', 'מגבון', 'מרכך'].some(w => n.includes(w))) return '🧻 Hygiène & Entretien';
                 return '🛒 Autres Rayons';
             };
 
@@ -697,7 +697,7 @@
 
             const recipeInfo = item.item_type === 'recipe'
                 ? (item.recipe_name
-                    ? `<small class="text-success d-block ms-1">📖 Recette : ${esc(item.recipe_name)}</small>`
+                    ? `<small class="text-success d-block ms-1">📖 Recette : <bdi>${esc(item.recipe_name)}</bdi></small>`
                     : `<small class="text-muted d-block ms-1">Aucune recette associée</small>`)
                 : '';
 
@@ -706,8 +706,8 @@
             card.innerHTML = `
                 <div>
                     <span class="badge ${badgeClass} me-2">${esc(item.location)}</span>
-                    <strong>${typeIcon(item.item_type)} ${esc(item.name)}</strong>
-                    ${item.quantity ? '- ' + esc(item.quantity) : ''}
+                    <strong>${typeIcon(item.item_type)} <bdi>${esc(item.name)}</bdi></strong>
+                    ${item.quantity ? '- <bdi>' + esc(item.quantity) + '</bdi>' : ''}
                     ${item.expiry_date ? `<small class="text-muted d-block ms-1">Péremption : ${esc(item.expiry_date)}</small>` : ''}
                     ${recipeInfo}
                 </div>
@@ -774,12 +774,13 @@
         }
 
         pendingFinish = { id, entries };
-        $('restock-title').innerText = `« ${item.name} » est terminé`;
+        $('restock-title').innerHTML = `« <bdi>${esc(item.name)}</bdi> » est terminé`;
+        $('restock-intro').dir = 'auto';
         $('restock-intro').innerText = intro;
         $('restock-list').innerHTML = entries.map((e, i) => `
             <div class="form-check mb-1">
                 <input class="form-check-input restock-check" type="checkbox" id="restock-${i}" data-index="${i}" checked>
-                <label class="form-check-label" for="restock-${i}">${typeIcon(e.item_type)} ${esc(e.name)} ${e.quantity ? '(' + esc(e.quantity) + ')' : ''}</label>
+                <label class="form-check-label" for="restock-${i}">${typeIcon(e.item_type)} <bdi>${esc(e.name)}</bdi> ${e.quantity ? '(<bdi>' + esc(e.quantity) + '</bdi>)' : ''}</label>
             </div>`).join('');
         $('restock-confirm').innerText = entries.length ? 'Terminer et mettre à jour les courses' : 'Terminer';
         modal('restockModal').show();
@@ -816,14 +817,14 @@
 
         recipesCache.forEach(recipe => {
             const chips = recipe.ingredients.length
-                ? recipe.ingredients.map(i => `<span class="badge ingredient-chip me-1 mb-1">${esc(i)}</span>`).join('')
+                ? recipe.ingredients.map(i => `<span class="badge ingredient-chip me-1 mb-1"><bdi>${esc(i)}</bdi></span>`).join('')
                 : '<small class="text-muted">Aucun ingrédient</small>';
             const card = document.createElement('div');
             card.className = 'card p-3 mb-2';
             card.innerHTML = `
                 <div class="d-flex justify-content-between align-items-start gap-2">
                     <div>
-                        <strong>🍲 ${esc(recipe.name)}</strong>
+                        <strong>🍲 <bdi>${esc(recipe.name)}</bdi></strong>
                         <div class="mt-2">${chips}</div>
                     </div>
                     <div class="d-flex gap-1 flex-shrink-0">
@@ -909,7 +910,7 @@
             li.className = 'list-group-item d-flex justify-content-between align-items-center';
             li.innerHTML = `
                 <div>
-                    <strong>${esc(item.description)}</strong>
+                    <strong><bdi>${esc(item.description)}</bdi></strong>
                     <small class="text-muted d-block">${esc(item.date)}</small>
                 </div>
                 <div class="d-flex align-items-center gap-2">
