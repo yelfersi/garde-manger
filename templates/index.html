@@ -5,23 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon Garde-Manger & Courses</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="theme-color" content="#FFC933">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding-bottom: 70px; }
-        .card { border: none; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .bought-item { text-decoration: line-through; color: #adb5bd; }
-        .nav-pills .nav-link.active { background-color: #198754; }
-        .nav-pills .nav-link { color: #198754; font-weight: 500; padding-left: 6px; padding-right: 6px; font-size: .9rem; }
-        .glossary-scroll { max-height: 55vh; overflow-y: auto; }
-        .badge-frigo { background-color: #0dcaf0; color: #000; }
-        .badge-congel { background-color: #0d6efd; color: #fff; }
-        .badge-placard { background-color: #ffc107; color: #000; }
-        .ingredient-chip { background-color: #e9f5ee; color: #146c43; font-weight: 500; }
+        /* Thème « Marché soleil » : jaune #FFC933, encre #1B2A22, fond #F6F4EC */
+        body { background:#F6F4EC; color:#1B2A22; font-family:'Rubik','Segoe UI',Tahoma,Arial,sans-serif; padding-bottom:70px; }
+        .app-title { background:#FFC933; color:#1B2A22; font-weight:700; font-size:2rem; margin:-24px -12px 20px; padding:34px 20px 30px; border-radius:0 0 28px 28px; }
+        .app-title small { display:block; font-size:.9rem; font-weight:400; }
+        .text-muted { color:#5E6358 !important; }
+        .text-success { color:#1B2A22 !important; }
+        .card { border:0; border-radius:20px; box-shadow:0 1px 3px rgba(27,42,34,.08); margin-bottom:20px; }
+        .list-group { border-radius:20px; overflow:hidden; box-shadow:0 1px 3px rgba(27,42,34,.08) !important; }
+        .list-group-item { border-color:#ECE8DA; }
+        .bg-light { background-color:#FBF7E4 !important; }
+        .bought-item { text-decoration:line-through; color:#686B60; }
+        /* Navigation en pilules */
+        #pills-tab { border-radius:999px !important; box-shadow:0 1px 3px rgba(27,42,34,.08) !important; }
+        .nav-pills .nav-link { color:#5E6358; font-weight:500; font-size:.9rem; padding:.55rem .4rem; border-radius:999px; }
+        .nav-pills .nav-link.active { background-color:#1B2A22; color:#fff; }
+        /* Boutons */
+        .btn { border-radius:999px; font-weight:500; }
+        .btn-success, .btn-primary, .btn-dark { --bs-btn-bg:#1B2A22; --bs-btn-border-color:#1B2A22; --bs-btn-color:#fff; --bs-btn-hover-bg:#2D4237; --bs-btn-hover-border-color:#2D4237; --bs-btn-hover-color:#fff; --bs-btn-active-bg:#2D4237; --bs-btn-active-border-color:#2D4237; --bs-btn-active-color:#fff; }
+        .btn-outline-success, .btn-outline-primary, .btn-outline-secondary { --bs-btn-color:#1B2A22; --bs-btn-border-color:#1B2A22; --bs-btn-hover-bg:#1B2A22; --bs-btn-hover-border-color:#1B2A22; --bs-btn-hover-color:#fff; --bs-btn-active-bg:#1B2A22; --bs-btn-active-border-color:#1B2A22; --bs-btn-active-color:#fff; }
+        .btn-outline-danger { --bs-btn-color:#B3261E; --bs-btn-border-color:#B3261E; --bs-btn-hover-bg:#B3261E; --bs-btn-hover-border-color:#B3261E; --bs-btn-active-bg:#B3261E; --bs-btn-active-border-color:#B3261E; }
+        .btn-warning { --bs-btn-bg:#FFC933; --bs-btn-border-color:#FFC933; --bs-btn-color:#1B2A22; --bs-btn-hover-bg:#F2B800; --bs-btn-hover-border-color:#F2B800; --bs-btn-hover-color:#1B2A22; --bs-btn-active-bg:#F2B800; --bs-btn-active-border-color:#F2B800; --bs-btn-active-color:#1B2A22; }
+        .btn-outline-warning { --bs-btn-color:#1B2A22; --bs-btn-border-color:#C99A00; --bs-btn-hover-bg:#FFC933; --bs-btn-hover-border-color:#FFC933; --bs-btn-hover-color:#1B2A22; --bs-btn-active-bg:#FFC933; --bs-btn-active-border-color:#FFC933; --bs-btn-active-color:#1B2A22; }
+        /* Champs et cases */
+        .form-control, .form-select { border-radius:12px; border-color:#D9D4C0; }
+        .form-control:focus, .form-select:focus { border-color:#1B2A22; box-shadow:0 0 0 .2rem rgba(255,201,51,.55); }
+        .form-check-input { width:1.4em; height:1.4em; border:2px solid #1B2A22; border-radius:50%; }
+        .form-check-input:checked { background-color:#1B2A22; border-color:#1B2A22; }
+        .form-check-input:focus { border-color:#1B2A22; box-shadow:0 0 0 .2rem rgba(255,201,51,.55); }
+        /* Fenêtres, bandeau budget, notifications */
+        .modal-content { border-radius:20px; overflow:hidden; }
+        .modal-header.bg-success, .modal-header.bg-warning, .card.bg-success { background:#FFC933 !important; color:#1B2A22 !important; }
+        .modal-header .btn-close-white { filter:none; }
+        .toast.text-bg-dark { background-color:#1B2A22 !important; }
+        /* Pastilles : emplacements, ingrédients */
+        .badge-frigo { background-color:#DDEBF7; color:#1D4268; }
+        .badge-congel { background-color:#E3E1F7; color:#3A3585; }
+        .badge-placard { background-color:#FBEFC4; color:#5C4500; }
+        .ingredient-chip { background-color:#FBEFC4; color:#1B2A22; font-weight:500; }
+        .glossary-scroll { max-height:55vh; overflow-y:auto; }
     </style>
 </head>
 <body>
 
 <div class="container mt-4" style="max-width: 800px;">
-    <h2 class="text-center mb-4 fw-bold text-success">🛒 Mon Garde-Manger</h2>
+    <h1 class="app-title"><small>Famille</small>Mon garde-manger</h1>
 
     {% if user %}
     <div class="d-flex justify-content-between align-items-center mb-3 bg-white p-2 px-3 rounded shadow-sm">
@@ -42,19 +73,19 @@
     <!-- Navigation -->
     <ul class="nav nav-pills nav-fill mb-4 bg-white p-2 rounded shadow-sm" id="pills-tab" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="tab-courses" data-bs-toggle="pill" data-bs-target="#courses" type="button">📝 Courses</button>
+            <button class="nav-link active" id="tab-courses" data-bs-toggle="pill" data-bs-target="#courses" type="button">Courses</button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-stock" data-bs-toggle="pill" data-bs-target="#stock" type="button">📦 Stocks</button>
+            <button class="nav-link" id="tab-stock" data-bs-toggle="pill" data-bs-target="#stock" type="button">Stocks</button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-recipes" data-bs-toggle="pill" data-bs-target="#recipes" type="button">🍲 Recettes</button>
+            <button class="nav-link" id="tab-recipes" data-bs-toggle="pill" data-bs-target="#recipes" type="button">Recettes</button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-glossary" data-bs-toggle="pill" data-bs-target="#glossary" type="button">📖 Glossaire</button>
+            <button class="nav-link" id="tab-glossary" data-bs-toggle="pill" data-bs-target="#glossary" type="button">Glossaire</button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="tab-budget" data-bs-toggle="pill" data-bs-target="#budget" type="button">💶 Budget</button>
+            <button class="nav-link" id="tab-budget" data-bs-toggle="pill" data-bs-target="#budget" type="button">Budget</button>
         </li>
     </ul>
 
