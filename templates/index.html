@@ -10,7 +10,8 @@
         .card { border: none; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .bought-item { text-decoration: line-through; color: #adb5bd; }
         .nav-pills .nav-link.active { background-color: #198754; }
-        .nav-pills .nav-link { color: #198754; font-weight: 500; padding-left: 6px; padding-right: 6px; }
+        .nav-pills .nav-link { color: #198754; font-weight: 500; padding-left: 6px; padding-right: 6px; font-size: .9rem; }
+        .glossary-scroll { max-height: 55vh; overflow-y: auto; }
         .badge-frigo { background-color: #0dcaf0; color: #000; }
         .badge-congel { background-color: #0d6efd; color: #fff; }
         .badge-placard { background-color: #ffc107; color: #000; }
@@ -29,6 +30,15 @@
     </div>
     {% endif %}
 
+    <div class="d-flex justify-content-end align-items-center gap-2 mb-3">
+        <label for="display-mode" class="small text-muted mb-0">Noms affichés :</label>
+        <select id="display-mode" class="form-select form-select-sm w-auto">
+            <option value="both">Français + עברית</option>
+            <option value="fr">Français</option>
+            <option value="he">עברית</option>
+        </select>
+    </div>
+
     <!-- Navigation -->
     <ul class="nav nav-pills nav-fill mb-4 bg-white p-2 rounded shadow-sm" id="pills-tab" role="tablist">
         <li class="nav-item" role="presentation">
@@ -39,6 +49,9 @@
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="tab-recipes" data-bs-toggle="pill" data-bs-target="#recipes" type="button">🍲 Recettes</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-glossary" data-bs-toggle="pill" data-bs-target="#glossary" type="button">📖 Glossaire</button>
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="tab-budget" data-bs-toggle="pill" data-bs-target="#budget" type="button">💶 Budget</button>
@@ -52,7 +65,7 @@
             <div class="card p-3">
                 <form id="form-shopping" class="row g-2">
                     <div class="col-12 col-md-4">
-                        <input type="text" id="shop-name" dir="auto" class="form-control" placeholder="Article (ex: Lait)" required>
+                        <input type="text" id="shop-name" dir="auto" list="terms-list" class="form-control" placeholder="Article (ex: Lait)" required>
                     </div>
                     <div class="col-6 col-md-2">
                         <input type="text" id="shop-qty" dir="auto" class="form-control" placeholder="Qté (ex: 2L)">
@@ -91,7 +104,7 @@
             <div class="card p-3">
                 <form id="form-inventory" class="row g-2">
                     <div class="col-12 col-md-3">
-                        <input type="text" id="inv-name" dir="auto" class="form-control" placeholder="Produit (ex: Pâtes)" required>
+                        <input type="text" id="inv-name" dir="auto" list="terms-list" class="form-control" placeholder="Produit (ex: Pâtes)" required>
                     </div>
                     <div class="col-6 col-md-2">
                         <input type="text" id="inv-qty" dir="auto" class="form-control" placeholder="Qté">
@@ -135,7 +148,34 @@
             <div id="recipe-list"></div>
         </div>
 
-        <!-- ONGLET 4 : BUDGET -->
+        <!-- ONGLET 4 : GLOSSAIRE -->
+        <div class="tab-pane fade" id="glossary">
+            <div class="card p-3">
+                <form id="form-term" class="row g-2">
+                    <div class="col-12 col-md-5">
+                        <input type="text" id="term-add-fr" dir="auto" class="form-control" placeholder="Français (ex: lait)">
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <input type="text" id="term-add-he" dir="auto" class="form-control" placeholder="עברית (למשל: חלב)">
+                    </div>
+                    <div class="col-12 col-md-2">
+                        <button type="submit" class="btn btn-success w-100">Ajouter</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card p-3" id="glossary-todo-card" style="display:none;">
+                <h6 class="fw-bold mb-1">À traduire</h6>
+                <p class="small text-muted mb-2">Ces articles sont utilisés mais absents du glossaire : ils s'affichent dans une seule langue.</p>
+                <div id="glossary-todo"></div>
+            </div>
+
+            <input type="search" id="glossary-search" dir="auto" class="form-control mb-2" placeholder="Rechercher un mot…" aria-label="Rechercher dans le glossaire">
+            <div class="small text-muted mb-2 px-1" id="glossary-count"></div>
+            <div class="list-group shadow-sm glossary-scroll" id="glossary-list"></div>
+        </div>
+
+        <!-- ONGLET 5 : BUDGET -->
         <div class="tab-pane fade" id="budget">
             <div class="card p-3 text-center bg-success text-white">
                 <h6 class="text-uppercase mb-1">Dépenses du mois en cours</h6>
@@ -179,7 +219,7 @@
 
                 <div class="mb-3">
                     <label class="form-label text-muted small">Nom</label>
-                    <input type="text" id="modal-edit-name" dir="auto" class="form-control">
+                    <input type="text" id="modal-edit-name" dir="auto" list="terms-list" class="form-control">
                 </div>
                 <div class="mb-3" id="field-qty-container">
                     <label class="form-label text-muted small">Quantité</label>
@@ -322,6 +362,35 @@
     </div>
 </div>
 
+<!-- Modal : ajout / modification d'un mot du glossaire -->
+<div class="modal fade" id="termModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="term-modal-title">Mot du glossaire</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="term-edit-id">
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Français</label>
+                    <input type="text" id="term-edit-fr" dir="auto" class="form-control">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label text-muted small">עברית</label>
+                    <input type="text" id="term-edit-he" dir="auto" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-success" onclick="saveTerm()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<datalist id="terms-list"></datalist>
+
 <!-- Notifications -->
 <div class="toast-container position-fixed bottom-0 start-50 translate-middle-x p-3" style="z-index: 2000;">
     <div id="appToast" class="toast align-items-center text-bg-dark border-0" role="status" aria-live="polite" aria-atomic="true">
@@ -368,6 +437,63 @@
     let inventoryCache = [];
     let expenseCache = [];
     let recipesCache = [];
+    let termsCache = [];
+    let termIndex = new Map();
+    let displayMode = 'both';
+    try { displayMode = localStorage.getItem('displayMode') || 'both'; } catch (e) {}
+
+    // Normalisation : doit rester identique à norm_text() dans app.py
+    function norm(s) {
+        return String(s ?? '').toLowerCase().replace(/\u0153/g, 'oe')
+            .replace(/[\u05f3\u2019\u2018`\u00b4]/g, "'")
+            .normalize('NFD').replace(/[\u0300-\u036f\u0591-\u05c7]/g, '')
+            .replace(/\s+/g, ' ').trim();
+    }
+    const HEBREW_RE = /[\u0590-\u05FF]/;
+
+    function findTerm(name) { return termIndex.get(norm(name)) || null; }
+    // Clé de comparaison : « lait » et « חלב » donnent la même clé
+    function itemKey(name) { const t = findTerm(name); return t ? 't' + t.id : 'n' + norm(name); }
+
+    // HTML d'un nom de produit, selon le mode d'affichage choisi
+    function displayName(name) {
+        const t = findTerm(name);
+        if (!t || !t.fr || !t.he) return `<bdi>${esc(name)}</bdi>`;
+        if (displayMode === 'fr') return `<bdi>${esc(t.fr)}</bdi>`;
+        if (displayMode === 'he') return `<bdi>${esc(t.he)}</bdi>`;
+        return `<bdi>${esc(t.fr)}</bdi> <span class="text-muted fw-normal">· <bdi>${esc(t.he)}</bdi></span>`;
+    }
+
+    async function loadTerms() {
+        const res = await fetch('/api/terms');
+        termsCache = await res.json();
+        termIndex = new Map();
+        termsCache.forEach(t => {
+            if (t.fr) termIndex.set(norm(t.fr), t);
+            if (t.he) termIndex.set(norm(t.he), t);
+        });
+        // Suggestions à la saisie : chaque mot est proposé avec sa traduction
+        $('terms-list').innerHTML = termsCache.flatMap(t => {
+            const options = [];
+            if (t.fr) options.push(`<option value="${esc(t.fr)}" label="${esc(t.he || '')}"></option>`);
+            if (t.he) options.push(`<option value="${esc(t.he)}" label="${esc(t.fr || '')}"></option>`);
+            return options;
+        }).join('');
+    }
+
+    function rerenderAll() {
+        renderShoppingList(shoppingCache);
+        renderInventory();
+        renderRecipes();
+        renderGlossary();
+    }
+
+    $('display-mode').value = displayMode;
+    $('display-mode').addEventListener('change', () => {
+        displayMode = $('display-mode').value;
+        try { localStorage.setItem('displayMode', displayMode); } catch (e) {}
+        rerenderAll();
+    });
 
     function fillTypeSelect(select, allowedTypes, selected) {
         select.innerHTML = allowedTypes.map(t => `<option value="${t}">${TYPE_LABELS[t]}</option>`).join('');
@@ -389,6 +515,8 @@
         $('modal-edit-type').value = kind;
         $('modal-edit-id').value = item.id;
         $('modal-edit-name').value = kind === 'expense' ? item.description : item.name;
+        if (kind === 'expense') $('modal-edit-name').removeAttribute('list');
+        else $('modal-edit-name').setAttribute('list', 'terms-list');
 
         const show = (id, visible) => $(id).style.display = visible ? 'block' : 'none';
         show('field-qty-container', kind !== 'expense');
@@ -477,7 +605,7 @@
                 <input class="form-check-input" type="checkbox" ${bought ? 'checked' : ''}
                        onchange="onShoppingToggle(${item.id}, this)" aria-label="Acheté">
                 <label class="form-check-label ${bought ? 'bought-item' : ''}">
-                    ${typeIcon(item.item_type)} <strong><bdi>${esc(item.name)}</bdi></strong> ${item.quantity ? '(<bdi>' + esc(item.quantity) + '</bdi>)' : ''}
+                    ${typeIcon(item.item_type)} <strong>${displayName(item.name)}</strong> ${item.quantity ? '(<bdi>' + esc(item.quantity) + '</bdi>)' : ''}
                 </label>
             </div>
             <div class="d-flex align-items-center gap-2">
@@ -503,6 +631,7 @@
         const items = await res.json();
         shoppingCache = items;
         renderShoppingList(items);
+        renderGlossary();
     }
 
     function renderShoppingList(items) {
@@ -523,6 +652,9 @@
 
     $('form-shopping').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const typed = $('shop-name').value;
+        const duplicate = shoppingCache.find(i => !i.bought && itemKey(i.name) === itemKey(typed));
+        if (duplicate && !confirm(`"${duplicate.name}" est déjà dans la liste.\nL'ajouter quand même ?`)) return;
         await api('/api/shopping', 'POST', {
             name: $('shop-name').value,
             quantity: $('shop-qty').value,
@@ -559,7 +691,7 @@
 
         if (checkbox.checked) {
             pendingBuy = { id, checkbox, confirmed: false };
-            $('buy-item-name').innerText = item.name + (item.quantity ? ' (' + item.quantity + ')' : '');
+            $('buy-item-name').innerHTML = displayName(item.name) + (item.quantity ? ' (<bdi>' + esc(item.quantity) + '</bdi>)' : '');
             $('buy-loc').value = item.item_type === 'household' ? 'Placard' : 'Frigo';
             $('buy-date').value = '';
             modal('buyModal').show();
@@ -682,6 +814,11 @@
     async function loadInventory() {
         const res = await fetch('/api/inventory');
         inventoryCache = await res.json();
+        renderInventory();
+        renderGlossary();
+    }
+
+    function renderInventory() {
         const container = $('inventory-list');
         container.innerHTML = '';
 
@@ -706,7 +843,7 @@
             card.innerHTML = `
                 <div>
                     <span class="badge ${badgeClass} me-2">${esc(item.location)}</span>
-                    <strong>${typeIcon(item.item_type)} <bdi>${esc(item.name)}</bdi></strong>
+                    <strong>${typeIcon(item.item_type)} ${displayName(item.name)}</strong>
                     ${item.quantity ? '- <bdi>' + esc(item.quantity) + '</bdi>' : ''}
                     ${item.expiry_date ? `<small class="text-muted d-block ms-1">Péremption : ${esc(item.expiry_date)}</small>` : ''}
                     ${recipeInfo}
@@ -774,13 +911,13 @@
         }
 
         pendingFinish = { id, entries };
-        $('restock-title').innerHTML = `« <bdi>${esc(item.name)}</bdi> » est terminé`;
+        $('restock-title').innerHTML = `« ${displayName(item.name)} » est terminé`;
         $('restock-intro').dir = 'auto';
         $('restock-intro').innerText = intro;
         $('restock-list').innerHTML = entries.map((e, i) => `
             <div class="form-check mb-1">
                 <input class="form-check-input restock-check" type="checkbox" id="restock-${i}" data-index="${i}" checked>
-                <label class="form-check-label" for="restock-${i}">${typeIcon(e.item_type)} <bdi>${esc(e.name)}</bdi> ${e.quantity ? '(<bdi>' + esc(e.quantity) + '</bdi>)' : ''}</label>
+                <label class="form-check-label" for="restock-${i}">${typeIcon(e.item_type)} ${displayName(e.name)} ${e.quantity ? '(<bdi>' + esc(e.quantity) + '</bdi>)' : ''}</label>
             </div>`).join('');
         $('restock-confirm').innerText = entries.length ? 'Terminer et mettre à jour les courses' : 'Terminer';
         modal('restockModal').show();
@@ -808,6 +945,11 @@
     async function loadRecipes() {
         const res = await fetch('/api/recipes');
         recipesCache = await res.json();
+        renderRecipes();
+        renderGlossary();
+    }
+
+    function renderRecipes() {
         const container = $('recipe-list');
         container.innerHTML = '';
 
@@ -817,7 +959,7 @@
 
         recipesCache.forEach(recipe => {
             const chips = recipe.ingredients.length
-                ? recipe.ingredients.map(i => `<span class="badge ingredient-chip me-1 mb-1"><bdi>${esc(i)}</bdi></span>`).join('')
+                ? recipe.ingredients.map(i => `<span class="badge ingredient-chip me-1 mb-1">${displayName(i)}</span>`).join('')
                 : '<small class="text-muted">Aucun ingrédient</small>';
             const card = document.createElement('div');
             card.className = 'card p-3 mb-2';
@@ -891,6 +1033,95 @@
         loadRecipes();
     }
 
+    // ---------- GLOSSAIRE ----------
+    let todoNames = [];
+
+    function renderGlossary() {
+        const q = norm($('glossary-search').value);
+        const rows = termsCache.filter(t => !q || norm(t.fr).includes(q) || norm(t.he).includes(q));
+
+        $('glossary-count').innerText = `${termsCache.length} mot(s) dans le glossaire` +
+            (q ? ` · ${rows.length} résultat(s)` : '');
+
+        $('glossary-list').innerHTML = rows.length === 0
+            ? '<div class="list-group-item text-center text-muted py-3">Aucun mot trouvé.</div>'
+            : rows.map(t => {
+                const incomplete = !t.fr || !t.he;
+                return `
+                <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                    <div>
+                        <strong>${t.fr ? `<bdi>${esc(t.fr)}</bdi>` : '<span class="text-muted">—</span>'}</strong>
+                        <span class="text-muted">·</span>
+                        <span>${t.he ? `<bdi>${esc(t.he)}</bdi>` : '<span class="text-muted">—</span>'}</span>
+                        ${incomplete ? '<span class="badge text-bg-warning ms-1">traduction manquante</span>' : ''}
+                    </div>
+                    <div class="d-flex gap-1 flex-shrink-0">
+                        <button class="btn btn-sm btn-outline-primary" onclick="openTermModal(${t.id})">Modifier</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteTerm(${t.id})" aria-label="Supprimer">✕</button>
+                    </div>
+                </div>`;
+            }).join('');
+
+        // Articles utilisés mais absents du glossaire (les plats préparés ne sont pas des produits)
+        const unknown = new Map();
+        const consider = name => {
+            const key = norm(name);
+            if (key && !termIndex.has(key) && !unknown.has(key)) unknown.set(key, name);
+        };
+        shoppingCache.forEach(i => consider(i.name));
+        inventoryCache.filter(i => i.item_type !== 'recipe').forEach(i => consider(i.name));
+        recipesCache.forEach(r => r.ingredients.forEach(consider));
+
+        todoNames = [...unknown.values()].slice(0, 30);
+        $('glossary-todo-card').style.display = todoNames.length ? 'block' : 'none';
+        $('glossary-todo').innerHTML = todoNames.map((name, i) => `
+            <button class="btn btn-sm btn-outline-secondary me-1 mb-1" onclick="openTermModal(null, ${i})"><bdi>${esc(name)}</bdi> + traduire</button>`).join('');
+    }
+
+    $('glossary-search').addEventListener('input', renderGlossary);
+
+    function openTermModal(id, todoIndex) {
+        const term = id ? termsCache.find(t => t.id === id) : null;
+        $('term-modal-title').innerText = term ? 'Modifier le mot' : 'Ajouter au glossaire';
+        $('term-edit-id').value = term ? term.id : '';
+        $('term-edit-fr').value = term ? (term.fr || '') : '';
+        $('term-edit-he').value = term ? (term.he || '') : '';
+        if (!term && todoIndex !== undefined) {
+            // Le mot déjà connu va dans sa langue ; il reste à saisir l'autre
+            const name = todoNames[todoIndex];
+            $(HEBREW_RE.test(name) ? 'term-edit-he' : 'term-edit-fr').value = name;
+        }
+        modal('termModal').show();
+    }
+
+    async function saveTerm() {
+        const id = $('term-edit-id').value;
+        const body = { fr: $('term-edit-fr').value, he: $('term-edit-he').value };
+        if (id) await api(`/api/terms/${id}`, 'PUT', body);
+        else await api('/api/terms', 'POST', body);
+        modal('termModal').hide();
+        await loadTerms();
+        rerenderAll();
+        showToast('Glossaire mis à jour ✔');
+    }
+
+    async function deleteTerm(id) {
+        const term = termsCache.find(t => t.id === id);
+        if (!confirm(`Supprimer "${term ? (term.fr || term.he) : ''}" du glossaire ?\nLes articles gardent leur nom, sans traduction.`)) return;
+        await api(`/api/terms/${id}`, 'DELETE');
+        await loadTerms();
+        rerenderAll();
+    }
+
+    $('form-term').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await api('/api/terms', 'POST', { fr: $('term-add-fr').value, he: $('term-add-he').value });
+        e.target.reset();
+        await loadTerms();
+        rerenderAll();
+        showToast('Mot ajouté au glossaire ✔');
+    });
+
     // ---------- BUDGET ----------
     async function loadExpenses() {
         const res = await fetch('/api/expenses');
@@ -946,10 +1177,12 @@
     }
 
     // ---------- INITIALISATION ----------
-    loadShopping();
-    loadRecipes();
-    loadInventory();
-    loadExpenses();
+    loadTerms().then(() => {
+        loadShopping();
+        loadRecipes();
+        loadInventory();
+        loadExpenses();
+    });
 </script>
 </body>
 </html>
