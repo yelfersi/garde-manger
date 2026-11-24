@@ -616,7 +616,10 @@ def ai_sort_shopping():
       " d'un supermarché (ex: 🍎 Fruits & Légumes, 🧀 Produits Frais,"
       ' 🥫 Épicerie & Sec, 🥩 Boucherie, 🧻 Hygiène). Réponds STRICTEMENT'
       ' sous un format JSON où les clés sont les noms des rayons et les valeurs'
-      f' sont les listes des articles correspondants.\nArticles : {item_names}'
+      f' sont les listes des articles correspondants. Les articles peuvent être'
+      ' écrits en français ou en hébreu : reprends chaque nom EXACTEMENT tel'
+      " qu'il est écrit, sans le traduire ni le modifier. Les noms de rayons"
+      f' restent en français.\nArticles : {item_names}'
   )
 
   try:
