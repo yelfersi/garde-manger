@@ -118,7 +118,7 @@
 
             <div class="d-flex justify-content-between align-items-center mb-2 px-1 flex-wrap gap-2">
                 <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-outline-success" onclick="aiSortShopping()">✨ Trier par IA</button>
+                    <button class="btn btn-sm btn-outline-success" id="btn-sort" onclick="toggleAisleView()">Trier par rayon</button>
                     <button class="btn btn-sm btn-outline-secondary" id="btn-clear-bought" style="display:none;" onclick="clearBought()">🧹 Retirer les articles achetés</button>
                 </div>
                 <div>
@@ -183,14 +183,17 @@
         <div class="tab-pane fade" id="glossary">
             <div class="card p-3">
                 <form id="form-term" class="row g-2">
-                    <div class="col-12 col-md-5">
+                    <div class="col-12 col-md-4">
                         <input type="text" id="term-add-fr" dir="auto" class="form-control" placeholder="Français (ex: lait)">
                     </div>
-                    <div class="col-12 col-md-5">
+                    <div class="col-12 col-md-4">
                         <input type="text" id="term-add-he" dir="auto" class="form-control" placeholder="עברית (למשל: חלב)">
                     </div>
-                    <div class="col-12 col-md-2">
-                        <button type="submit" class="btn btn-success w-100">Ajouter</button>
+                    <div class="col-12 col-md-4">
+                        <select id="term-add-category" class="form-select" aria-label="Rayon"></select>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-success w-100">Ajouter au glossaire</button>
                     </div>
                 </form>
             </div>
@@ -410,6 +413,10 @@
                 <div class="mb-2">
                     <label class="form-label text-muted small">עברית</label>
                     <input type="text" id="term-edit-he" dir="auto" class="form-control">
+                </div>
+                <div class="mt-3 mb-2">
+                    <label class="form-label text-muted small">Rayon (pour le tri des courses)</label>
+                    <select id="term-edit-category" class="form-select"></select>
                 </div>
             </div>
             <div class="modal-footer">
@@ -691,18 +698,38 @@
         renderGlossary();
     }
 
+    function appendShoppingHeader(list, text, muted) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item bg-light fw-bold small text-uppercase py-1 ' + (muted ? 'text-muted' : 'text-success');
+        li.innerText = text;
+        list.appendChild(li);
+    }
+
     function renderShoppingList(items) {
         const list = $('shopping-list');
         list.innerHTML = '';
-        let total = 0;
+        $('btn-sort').innerText = groupedView ? 'Vue simple' : 'Trier par rayon';
+
+        const pending = items.filter(i => !i.bought);
+        const done = items.filter(i => i.bought);
+        const total = pending.reduce((sum, i) => sum + Number(i.estimated_price || 0), 0);
 
         if (items.length === 0) {
             list.innerHTML = '<li class="list-group-item text-center text-muted py-3">Ta liste est vide. Ajoute un premier article ci-dessus.</li>';
+        } else if (!groupedView) {
+            items.forEach(item => appendShoppingRow(list, item, false));
+        } else {
+            CATEGORIES.forEach(cat => {
+                const inAisle = pending.filter(i => getCategory(i.name) === cat.key);
+                if (inAisle.length === 0) return;
+                appendShoppingHeader(list, cat.label, false);
+                inAisle.forEach(i => appendShoppingRow(list, i, true));
+            });
+            if (done.length) {
+                appendShoppingHeader(list, '✅ Déjà acheté', true);
+                done.forEach(i => appendShoppingRow(list, i, true));
+            }
         }
-        items.forEach(item => {
-            if (!item.bought) total += Number(item.estimated_price || 0);
-            appendShoppingRow(list, item, false);
-        });
         updateClearButton(items);
         $('total-estimated').innerText = total.toFixed(2) + ' ₪';
     }
@@ -783,89 +810,74 @@
         pendingBuy = null;
     });
 
-    // ---------- TRI PAR IA ----------
-    async function aiSortShopping() {
-        const list = $('shopping-list');
-        list.innerHTML = '<li class="list-group-item text-center text-muted py-3">🤖 L\'IA analyse et trie ta liste...</li>';
+    // ---------- TRI PAR RAYON ----------
+    const CATEGORIES = [
+        { key: 'fruits',   label: '🍎 Fruits & Légumes' },
+        { key: 'frais',    label: '🧀 Produits Frais & Laitiers' },
+        { key: 'viande',   label: '🥩 Boucherie & Poissonnerie' },
+        { key: 'epicerie', label: '🥫 Épicerie & Sec' },
+        { key: 'surgeles', label: '🧊 Surgelés' },
+        { key: 'hygiene',  label: '🧻 Hygiène & Entretien' },
+        { key: 'autres',   label: '🛒 Autres Rayons' }
+    ];
+    const categoryLabel = key => (CATEGORIES.find(c => c.key === key) || {}).label || '';
 
-        try {
-            const res = await fetch('/api/shopping/ai-sort', { method: 'POST' });
-            const data = await res.json();
+    // Mots-clés de secours (sans accents), pour les articles absents du glossaire ou sans rayon
+    const CATEGORY_KEYWORDS = {
+        surgeles: ['surgele', 'glace', 'congele', 'קפוא', 'גלידה'],
+        epicerie: ['moutarde', 'pate', 'riz', 'farine', 'sucre', 'huile', 'cracotte', 'cracker', 'conserve', 'sauce', 'cafe', 'the', 'chocolat', 'gateau', 'pain',
+                   'פסטה', 'אורז', 'קמח', 'סוכר', 'שמן', 'רוטב', 'קפה', 'תה', 'שוקולד', 'עוגיות', 'לחם', 'חומוס', 'טחינה', 'עדשים', 'שימורים', 'חרדל', 'קורנפלקס', 'דגנים', 'פתיתים', 'קרקר', 'ממרח', 'מלח', 'תבלין'],
+        viande:   ['viande', 'poulet', 'boeuf', 'steak', 'jambon', 'poisson', 'saumon',
+                   'בשר', 'עוף', 'חזה', 'סטייק', 'נקניק', 'שניצל', 'דגים', 'דג', 'סלמון', 'טונה', 'בקר', 'הודו', 'כבד'],
+        frais:    ['lait', 'cottage', 'beurre', 'fromage', 'yaourt', 'creme', 'oeuf', 'mozzarella',
+                   'חלב', 'קוטג', 'גבינה', 'יוגורט', 'חמאה', 'שמנת', 'ביצים', 'ביצה', 'מוצרלה', 'לבנה', 'מעדן'],
+        fruits:   ['fruit', 'legume', 'avocat', 'tomate', 'pomme', 'banane', 'salade', 'carotte', 'oignon', 'citron', 'concombre', 'courgette',
+                   'עגבני', 'מלפפון', 'בצל', 'גזר', 'תפוח', 'בננה', 'אבוקדו', 'לימון', 'חסה', 'קישוא', 'תפוז', 'פלפל', 'שום', 'פטרוזיליה', 'כוסברה', 'ירקות', 'פירות'],
+        hygiene:  ['papier', 'savon', 'shampoing', 'lessive', 'dentifrice', 'eponge', 'sac',
+                   'נייר', 'סבון', 'שמפו', 'כביסה', 'משחת שיניים', 'ספוג', 'שקית', 'שקיות', 'מנקה', 'אקונומיקה', 'חיתולים', 'מגבון', 'מרכך']
+    };
+    const CATEGORY_ORDER = ['surgeles', 'epicerie', 'viande', 'frais', 'fruits', 'hygiene'];
+    const KEYWORDS_NORM = Object.fromEntries(Object.entries(CATEGORY_KEYWORDS).map(([k, list]) => [k, list.map(norm)]));
 
-            if (!data.items) { loadShopping(); return; }
-
-            // Dictionnaire local de secours (mode réduit)
-            const getLocalCategory = (name) => {
-                const n = name.toLowerCase();
-                if (['avocat', 'tomate', 'pomme', 'banane', 'salade', 'carotte', 'oignon', 'citron', 'concombre', 'courgette', 'עגבני', 'מלפפון', 'בצל', 'גזר', 'תפוח', 'בננה', 'אבוקדו', 'לימון', 'חסה', 'קישוא', 'תפוז', 'פלפל', 'שום', 'פטרוזיליה', 'כוסברה', 'ירקות', 'פירות'].some(w => n.includes(w))) return '🍎 Fruits & Légumes';
-                if (['lait', 'cottage','beurre', 'fromage', 'yaourt', 'crème', 'œufs', 'oeuf', 'mozzarella', 'חלב', 'קוטג', 'גבינה', 'יוגורט', 'חמאה', 'שמנת', 'ביצים', 'ביצה', 'מוצרלה', 'לבנה', 'מעדן'].some(w => n.includes(w))) return '🧀 Produits Frais & Laitiers';
-                if (['viande', 'poulet', 'bœuf', 'steak', 'jambon', 'poisson', 'saumon', 'בשר', 'עוף', 'חזה', 'סטייק', 'נקניק', 'שניצל', 'דגים', 'סלמון', 'טונה', 'בקר', 'הודו', 'כבד'].some(w => n.includes(w)) || n.split(/\s+/).includes('דג')) return '🥩 Boucherie & Poissonnerie';
-                if (['moutarde','pâtes', 'riz', 'farine', 'sucre', 'huile', 'cracottes', 'crackers', 'conserve', 'sauce', 'café', 'thé', 'chocolat', 'gâteau', 'pain', 'פסטה', 'אורז', 'קמח', 'סוכר', 'שמן', 'רוטב', 'קפה', 'תה', 'שוקולד', 'עוגיות', 'לחם', 'חומוס', 'טחינה', 'עדשים', 'שימורים', 'חרדל', 'קורנפלקס', 'דגנים', 'פתיתים', 'קרקר', 'ממרח', 'מלח', 'תבלין'].some(w => n.includes(w))) return '🥫 Épicerie & Sec';
-                if (['papier', 'savon', 'shampoing', 'lessive', 'dentifrice', 'éponge', 'sac', 'נייר', 'סבון', 'שמפו', 'כביסה', 'משחת שיניים', 'ספוג', 'שקית', 'שקיות', 'מנקה', 'אקונומיקה', 'חיתולים', 'מגבון', 'מרכך'].some(w => n.includes(w))) return '🧻 Hygiène & Entretien';
-                return '🛒 Autres Rayons';
-            };
-
-            let sortedCategories = {};
-            const allItems = data.items;
-
-            if (data.fallback) {
-                allItems.forEach(item => {
-                    const cat = getLocalCategory(item.name);
-                    if (!sortedCategories[cat]) sortedCategories[cat] = [];
-                    sortedCategories[cat].push(item.name);
-                });
-            } else {
-                const rawText = data.result.replace(/```json/g, '').replace(/```/g, '').trim();
-                sortedCategories = JSON.parse(rawText);
-            }
-
-            // Les articles déjà achetés restent visibles (barrés) en bas de liste
-            const allRes = await fetch('/api/shopping');
-            shoppingCache = await allRes.json();
-            const boughtItems = shoppingCache.filter(i => i.bought);
-
-            list.innerHTML = '';
-            let total = 0;
-
-            if (data.fallback) {
-                const alertLi = document.createElement('li');
-                alertLi.className = 'list-group-item alert alert-warning py-2 mb-2 small text-center';
-                alertLi.innerHTML = '⚠️ L\'IA n\'est pas dispo (surcharge), voici une version de tri en mode dégradé.';
-                list.appendChild(alertLi);
-            }
-
-            for (const [rayon, articleNames] of Object.entries(sortedCategories)) {
-                const names = articleNames.map(n => String(n).toLowerCase());
-                const matchingItems = allItems.filter(i => names.includes(i.name.toLowerCase()));
-
-                if (matchingItems.length > 0) {
-                    const headerLi = document.createElement('li');
-                    headerLi.className = 'list-group-item bg-light text-success fw-bold small text-uppercase py-1';
-                    headerLi.innerText = rayon;
-                    list.appendChild(headerLi);
-
-                    matchingItems.forEach(item => {
-                        total += Number(item.estimated_price || 0);
-                        appendShoppingRow(list, item, true);
-                    });
-                }
-            }
-
-            if (boughtItems.length > 0) {
-                const headerLi = document.createElement('li');
-                headerLi.className = 'list-group-item bg-light text-muted fw-bold small text-uppercase py-1';
-                headerLi.innerText = '✅ Déjà acheté';
-                list.appendChild(headerLi);
-                boughtItems.forEach(item => appendShoppingRow(list, item, true));
-            }
-
-            updateClearButton(shoppingCache);
-            $('total-estimated').innerText = total.toFixed(2) + ' ₪';
-        } catch (err) {
-            console.error(err);
-            loadShopping();
+    function keywordMatch(tokens, text, kw) {
+        if (kw.includes(' ')) return text.includes(kw);
+        if (HEBREW_RE.test(kw)) {
+            // Hébreu : préfixe « ה » toléré, pluriels gérés pour les mots courts
+            return tokens.some(tok => [tok, tok.startsWith('\u05d4') ? tok.slice(1) : tok]
+                .some(t => kw.length >= 4 ? t.includes(kw) : stemWord(t) === stemWord(kw)));
         }
+        return tokens.some(tok => tok.startsWith(kw));   // français : début de mot (gère le pluriel)
     }
+
+    // Rayon d'un article : 1) rayon du glossaire (valable dans les deux langues), 2) mots-clés
+    // appliqués au mot saisi ET à ses traductions du glossaire
+    function getCategory(name) {
+        const term = findTerm(name);
+        if (term && term.category) return term.category;
+        const candidates = [name, term && term.fr, term && term.he].filter(Boolean).map(norm);
+        for (const key of CATEGORY_ORDER) {
+            for (const text of candidates) {
+                const tokens = text.split(/[\s\-']+/).filter(Boolean);
+                if (KEYWORDS_NORM[key].some(kw => keywordMatch(tokens, text, kw))) return key;
+            }
+        }
+        return 'autres';
+    }
+
+    let groupedView = false;
+    try { groupedView = localStorage.getItem('groupedView') === '1'; } catch (e) {}
+
+    function toggleAisleView() {
+        groupedView = !groupedView;
+        try { localStorage.setItem('groupedView', groupedView ? '1' : '0'); } catch (e) {}
+        renderShoppingList(shoppingCache);
+    }
+
+    // Sélecteurs de rayon du glossaire (vide = automatique)
+    ['term-add-category', 'term-edit-category'].forEach(id => {
+        $(id).innerHTML = '<option value="">Rayon : automatique</option>' +
+            CATEGORIES.filter(c => c.key !== 'autres').map(c => `<option value="${c.key}">${c.label}</option>`).join('');
+    });
 
     // ---------- STOCKS ----------
     async function loadInventory() {
@@ -1111,6 +1123,7 @@
                         <span class="text-muted">·</span>
                         <span>${t.he ? `<bdi>${esc(t.he)}</bdi>` : '<span class="text-muted">—</span>'}</span>
                         ${incomplete ? '<span class="badge text-bg-warning ms-1">traduction manquante</span>' : ''}
+                        ${t.category ? `<span class="badge bg-light text-dark ms-1 fw-normal">${esc(categoryLabel(t.category))}</span>` : ''}
                     </div>
                     <div class="d-flex gap-1 flex-shrink-0">
                         <button class="btn btn-sm btn-outline-primary" onclick="openTermModal(${t.id})">Modifier</button>
@@ -1143,6 +1156,7 @@
         $('term-edit-id').value = term ? term.id : '';
         $('term-edit-fr').value = term ? (term.fr || '') : '';
         $('term-edit-he').value = term ? (term.he || '') : '';
+        $('term-edit-category').value = term ? (term.category || '') : '';
         if (!term && todoIndex !== undefined) {
             // Le mot déjà connu va dans sa langue ; il reste à saisir l'autre
             const name = todoNames[todoIndex];
@@ -1153,7 +1167,7 @@
 
     async function saveTerm() {
         const id = $('term-edit-id').value;
-        const body = { fr: $('term-edit-fr').value, he: $('term-edit-he').value };
+        const body = { fr: $('term-edit-fr').value, he: $('term-edit-he').value, category: $('term-edit-category').value };
         if (id) await api(`/api/terms/${id}`, 'PUT', body);
         else await api('/api/terms', 'POST', body);
         modal('termModal').hide();
@@ -1172,7 +1186,7 @@
 
     $('form-term').addEventListener('submit', async (e) => {
         e.preventDefault();
-        await api('/api/terms', 'POST', { fr: $('term-add-fr').value, he: $('term-add-he').value });
+        await api('/api/terms', 'POST', { fr: $('term-add-fr').value, he: $('term-add-he').value, category: $('term-add-category').value });
         e.target.reset();
         await loadTerms();
         rerenderAll();
