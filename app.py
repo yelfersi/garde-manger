@@ -6,7 +6,6 @@ import unicodedata
 
 from authlib.integrations.flask_client import OAuth
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
-from google import genai
 import psycopg2
 import psycopg2.extras
 
@@ -30,8 +29,6 @@ google = oauth.register(
 # URL de connexion PostgreSQL (Supabase)
 DATABASE_URL = os.environ['DATABASE_URL']
 
-# Client Gemini (tri IA de la liste de courses)
-client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
 
 ITEM_TYPES_SHOPPING = ('ingredient', 'household')
 ITEM_TYPES_STOCK = ('ingredient', 'household', 'recipe')
@@ -202,6 +199,20 @@ def init_db():
           CONSTRAINT terms_has_a_name CHECK (fr IS NOT NULL OR he IS NOT NULL)
       )
     """)
+    cursor.execute("""
+      CREATE TABLE IF NOT EXISTS categories (
+          id BIGSERIAL PRIMARY KEY,
+          name_fr TEXT,
+          name_he TEXT,
+          icon TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ DEFAULT now(),
+          CONSTRAINT categories_has_a_name CHECK (name_fr IS NOT NULL OR name_he IS NOT NULL)
+      )
+    """)
+    cursor.execute(
+        'ALTER TABLE terms ADD COLUMN IF NOT EXISTS category_id BIGINT REFERENCES categories(id) ON DELETE SET NULL'
+    )
     # V2 : lien entre un article acheté et la ligne créée en stock
     cursor.execute(
         'ALTER TABLE shopping_list ADD COLUMN IF NOT EXISTS inventory_id BIGINT NULL'
@@ -678,6 +689,15 @@ def update_expense(exp_id):
 
 
 # --- API : GLOSSAIRE BILINGUE ---
+def resolve_category_id(cursor, value):
+  """Id de rayon valide (ou None s'il n'existe pas)."""
+  category_id = to_int_or_none(value)
+  if category_id is None:
+    return None
+  cursor.execute('SELECT 1 FROM categories WHERE id = %s', (category_id,))
+  return category_id if cursor.fetchone() else None
+
+
 def clean_term_payload(data):
   fr = (data.get('fr') or '').strip() or None
   he = (data.get('he') or '').strip() or None
@@ -701,7 +721,7 @@ def find_term_conflict(cursor, fr, he, exclude_id=None):
 def get_terms():
   with db() as cursor:
     cursor.execute(
-        'SELECT id, fr, he FROM terms ORDER BY lower(coalesce(fr, he))'
+        'SELECT id, fr, he, category_id FROM terms ORDER BY lower(coalesce(fr, he))'
     )
     rows = cursor.fetchall()
   return jsonify([dict(row) for row in rows])
@@ -718,8 +738,8 @@ def create_term():
       return jsonify({'status': 'error',
                       'message': f'« {conflict} » existe déjà dans le glossaire.'}), 409
     cursor.execute(
-        "INSERT INTO terms (fr, he, source) VALUES (%s, %s, 'manual') RETURNING id",
-        (fr, he),
+        "INSERT INTO terms (fr, he, category_id, source) VALUES (%s, %s, %s, 'manual') RETURNING id",
+        (fr, he, resolve_category_id(cursor, (request.json or {}).get('category_id'))),
     )
     term_id = cursor.fetchone()['id']
   return jsonify({'status': 'success', 'id': term_id})
@@ -737,8 +757,8 @@ def update_term(term_id):
         return jsonify({'status': 'error',
                         'message': f'« {conflict} » existe déjà dans le glossaire.'}), 409
       cursor.execute(
-          "UPDATE terms SET fr = %s, he = %s, source = 'manual' WHERE id = %s",
-          (fr, he, term_id),
+          "UPDATE terms SET fr = %s, he = %s, category_id = %s, source = 'manual' WHERE id = %s",
+          (fr, he, resolve_category_id(cursor, (request.json or {}).get('category_id')), term_id),
       )
     else:
       # Les articles gardent leur nom ; ils perdent simplement leur traduction
@@ -746,38 +766,92 @@ def update_term(term_id):
   return jsonify({'status': 'success'})
 
 
-# --- API : TRI IA DE LA LISTE DE COURSES ---
-@app.route('/api/shopping/ai-sort', methods=['POST'])
-def ai_sort_shopping():
+# --- API : RAYONS (catégories de la liste de courses) ---
+def clean_category_payload(data):
+  fr = (data.get('name_fr') or '').strip() or None
+  he = (data.get('name_he') or '').strip() or None
+  icon = (data.get('icon') or '').strip()[:8] or None
+  return fr, he, icon
+
+
+def find_category_conflict(cursor, fr, he, exclude_id=None):
+  wanted = {norm_text(w): w for w in (fr, he) if w}
+  cursor.execute('SELECT id, name_fr, name_he FROM categories')
+  for row in cursor.fetchall():
+    if row['id'] == exclude_id:
+      continue
+    for word in (row['name_fr'], row['name_he']):
+      if word and norm_text(word) in wanted:
+        return wanted[norm_text(word)]
+  return None
+
+
+@app.route('/api/categories', methods=['GET'])
+def get_categories():
   with db() as cursor:
-    cursor.execute('SELECT * FROM shopping_list WHERE bought = 0')
-    rows = cursor.fetchall()
-
-  if not rows:
-    return jsonify({})
-
-  items = [dict(row) for row in rows]
-  item_names = [item['name'] for item in items]
-
-  prompt = (
-      'Classe les articles de courses suivants selon les rayons logiques'
-      " d'un supermarché (ex: 🍎 Fruits & Légumes, 🧀 Produits Frais,"
-      ' 🥫 Épicerie & Sec, 🥩 Boucherie, 🧻 Hygiène). Réponds STRICTEMENT'
-      ' sous un format JSON où les clés sont les noms des rayons et les valeurs'
-      f' sont les listes des articles correspondants. Les articles peuvent être'
-      ' écrits en français ou en hébreu : reprends chaque nom EXACTEMENT tel'
-      " qu'il est écrit, sans le traduire ni le modifier. Les noms de rayons"
-      f' restent en français.\nArticles : {item_names}'
-  )
-
-  try:
-    response = client.models.generate_content(
-        model='gemini-3.8-flash',
-        contents=prompt,
+    cursor.execute(
+        'SELECT id, name_fr, name_he, icon, sort_order FROM categories ORDER BY sort_order, id'
     )
-    return jsonify({'result': response.text, 'items': items, 'fallback': False})
-  except Exception as e:
-    return jsonify({'error': str(e), 'items': items, 'fallback': True})
+    rows = cursor.fetchall()
+  return jsonify([dict(row) for row in rows])
+
+
+@app.route('/api/categories', methods=['POST'])
+def create_category():
+  fr, he, icon = clean_category_payload(request.json or {})
+  if not fr and not he:
+    return jsonify({'status': 'error', 'message': 'Donne un nom au rayon.'}), 400
+  with db() as cursor:
+    conflict = find_category_conflict(cursor, fr, he)
+    if conflict:
+      return jsonify({'status': 'error',
+                      'message': f'Le rayon « {conflict} » existe déjà.'}), 409
+    cursor.execute(
+        """
+        INSERT INTO categories (name_fr, name_he, icon, sort_order)
+        VALUES (%s, %s, %s, (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM categories))
+        RETURNING id
+        """,
+        (fr, he, icon),
+    )
+    category_id = cursor.fetchone()['id']
+  return jsonify({'status': 'success', 'id': category_id})
+
+
+@app.route('/api/categories/<int:category_id>', methods=['PUT', 'DELETE'])
+def update_category(category_id):
+  with db() as cursor:
+    if request.method == 'PUT':
+      fr, he, icon = clean_category_payload(request.json or {})
+      if not fr and not he:
+        return jsonify({'status': 'error', 'message': 'Donne un nom au rayon.'}), 400
+      conflict = find_category_conflict(cursor, fr, he, exclude_id=category_id)
+      if conflict:
+        return jsonify({'status': 'error',
+                        'message': f'Le rayon « {conflict} » existe déjà.'}), 409
+      cursor.execute(
+          'UPDATE categories SET name_fr = %s, name_he = %s, icon = %s WHERE id = %s',
+          (fr, he, icon, category_id),
+      )
+    else:
+      # Les mots du glossaire gardent leur traduction mais n'ont plus de rayon
+      cursor.execute('UPDATE terms SET category_id = NULL WHERE category_id = %s', (category_id,))
+      cursor.execute('DELETE FROM categories WHERE id = %s', (category_id,))
+  return jsonify({'status': 'success'})
+
+
+@app.route('/api/categories/reorder', methods=['POST'])
+def reorder_categories():
+  """Corps attendu : {"ids": [3, 1, 2]} dans le nouvel ordre d'affichage."""
+  ids = [to_int_or_none(i) for i in (request.json or {}).get('ids') or []]
+  with db() as cursor:
+    for position, category_id in enumerate(ids, start=1):
+      if category_id is not None:
+        cursor.execute(
+            'UPDATE categories SET sort_order = %s WHERE id = %s',
+            (position * 10, category_id),
+        )
+  return jsonify({'status': 'success'})
 
 
 if __name__ == '__main__':
