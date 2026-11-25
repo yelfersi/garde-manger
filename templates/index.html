@@ -47,6 +47,11 @@
         .badge-placard { background-color:#FBEFC4; color:#5C4500; }
         .ingredient-chip { background-color:#FBEFC4; color:#1B2A22; font-weight:500; }
         .glossary-scroll { max-height:55vh; overflow-y:auto; }
+        /* Pastille de rayon sur les articles : rayon connu / sans rayon / hors glossaire */
+        .aisle-tag { border:1px solid transparent; border-radius:999px; font-size:.75rem; font-weight:500; line-height:1.4; padding:.1rem .6rem; background:#EFEAD8; color:#1B2A22; cursor:pointer; }
+        .aisle-tag.none { background:#FFC933; }
+        .aisle-tag.unknown { background:transparent; border:1px dashed #8B8F82; color:#5E6358; }
+        .aisle-tag:hover { filter:brightness(.95); }
     </style>
 </head>
 <body>
@@ -181,6 +186,26 @@
 
         <!-- ONGLET 4 : GLOSSAIRE -->
         <div class="tab-pane fade" id="glossary">
+            <div class="card p-3">
+                <h6 class="fw-bold mb-1">Rayons du supermarché</h6>
+                <p class="small text-muted mb-2">Ils servent au tri de la liste de courses, dans l'ordre du magasin (flèches pour le changer).</p>
+                <div class="list-group mb-3" id="category-list"></div>
+                <form id="form-category" class="row g-2">
+                    <div class="col-3 col-md-2">
+                        <input type="text" id="cat-add-icon" class="form-control text-center" placeholder="🍞" maxlength="4" aria-label="Icône">
+                    </div>
+                    <div class="col-9 col-md-4">
+                        <input type="text" id="cat-add-fr" dir="auto" class="form-control" placeholder="Français (ex: Boulangerie)">
+                    </div>
+                    <div class="col-8 col-md-4">
+                        <input type="text" id="cat-add-he" dir="auto" class="form-control" placeholder="עברית (למשל: מאפים)">
+                    </div>
+                    <div class="col-4 col-md-2">
+                        <button type="submit" class="btn btn-success w-100">Ajouter</button>
+                    </div>
+                </form>
+            </div>
+
             <div class="card p-3">
                 <form id="form-term" class="row g-2">
                     <div class="col-12 col-md-4">
@@ -427,6 +452,37 @@
     </div>
 </div>
 
+<!-- Modal : modification d'un rayon -->
+<div class="modal fade" id="categoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Modifier le rayon</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="cat-edit-id">
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Icône</label>
+                    <input type="text" id="cat-edit-icon" class="form-control" maxlength="4">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Français</label>
+                    <input type="text" id="cat-edit-fr" dir="auto" class="form-control">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label text-muted small">עברית</label>
+                    <input type="text" id="cat-edit-he" dir="auto" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-success" onclick="saveCategory()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <datalist id="terms-list"></datalist>
 
 <!-- Notifications -->
@@ -470,12 +526,30 @@
         return res.json();
     }
 
+    // Chargement des données : en cas d'erreur serveur, on le dit au lieu d'afficher une liste vide
+    let loadErrorShown = false;
+    async function fetchJson(url, fallback) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return await res.json();
+        } catch (e) {
+            console.error('Chargement impossible :', url, e);
+            if (!loadErrorShown) {
+                loadErrorShown = true;
+                showToast('Chargement impossible (' + url + ') : erreur du serveur, rien n\'est supprimé. Vérifie que les scripts SQL ont été lancés puis recharge la page.');
+            }
+            return fallback;
+        }
+    }
+
     // Caches pour éviter de passer des textes dans les attributs onclick
     let shoppingCache = [];
     let inventoryCache = [];
     let expenseCache = [];
     let recipesCache = [];
     let termsCache = [];
+    let categoriesCache = [];
     let exactIndex = new Map();   // mot exact -> terme
     let stemIndex = new Map();    // mot sans pluriel -> terme
     let displayMode = 'both';
@@ -525,8 +599,8 @@
     }
 
     async function loadTerms() {
-        const res = await fetch('/api/terms');
-        termsCache = await res.json();
+        termsCache = await fetchJson('/api/terms', []);
+        categoriesCache = await fetchJson('/api/categories', []);
         exactIndex = new Map();
         stemIndex = new Map();
         termsCache.forEach(t => {
@@ -543,6 +617,7 @@
             if (t.he) options.push(`<option value="${esc(t.he)}" label="${esc(t.fr || '')}"></option>`);
             return options;
         }).join('');
+        fillCategorySelects();
     }
 
     function rerenderAll() {
@@ -670,6 +745,7 @@
                        onchange="onShoppingToggle(${item.id}, this)" aria-label="Acheté">
                 <label class="form-check-label ${bought ? 'bought-item' : ''}">
                     ${typeIcon(item.item_type)} <strong>${displayName(item.name)}</strong> ${item.quantity ? '(<bdi>' + esc(item.quantity) + '</bdi>)' : ''}
+                    <span class="d-block mt-1">${aisleTag('shopping', item.id, item.name)}</span>
                 </label>
             </div>
             <div class="d-flex align-items-center gap-2">
@@ -691,17 +767,17 @@
     }
 
     async function loadShopping() {
-        const res = await fetch('/api/shopping');
-        const items = await res.json();
+        const items = await fetchJson('/api/shopping', null);
+        if (items === null) return;
         shoppingCache = items;
         renderShoppingList(items);
         renderGlossary();
     }
 
-    function appendShoppingHeader(list, text, muted) {
+    function appendShoppingHeader(list, html, muted) {
         const li = document.createElement('li');
         li.className = 'list-group-item bg-light fw-bold small text-uppercase py-1 ' + (muted ? 'text-muted' : 'text-success');
-        li.innerText = text;
+        li.innerHTML = html;
         list.appendChild(li);
     }
 
@@ -719,12 +795,19 @@
         } else if (!groupedView) {
             items.forEach(item => appendShoppingRow(list, item, false));
         } else {
-            CATEGORIES.forEach(cat => {
-                const inAisle = pending.filter(i => getCategory(i.name) === cat.key);
+            // Rayons dans l'ordre choisi (onglet Glossaire), puis « Autres rayons »
+            const knownIds = new Set(categoriesCache.map(c => c.id));
+            categoriesCache.forEach(cat => {
+                const inAisle = pending.filter(i => getCategory(i.name) === cat.id);
                 if (inAisle.length === 0) return;
-                appendShoppingHeader(list, cat.label, false);
+                appendShoppingHeader(list, categoryLabelHTML(cat), false);
                 inAisle.forEach(i => appendShoppingRow(list, i, true));
             });
+            const others = pending.filter(i => !knownIds.has(getCategory(i.name)));
+            if (others.length) {
+                appendShoppingHeader(list, '🛒 Autres rayons', false);
+                others.forEach(i => appendShoppingRow(list, i, true));
+            }
             if (done.length) {
                 appendShoppingHeader(list, '✅ Déjà acheté', true);
                 done.forEach(i => appendShoppingRow(list, i, true));
@@ -811,57 +894,19 @@
     });
 
     // ---------- TRI PAR RAYON ----------
-    const CATEGORIES = [
-        { key: 'fruits',   label: '🍎 Fruits & Légumes' },
-        { key: 'frais',    label: '🧀 Produits Frais & Laitiers' },
-        { key: 'viande',   label: '🥩 Boucherie & Poissonnerie' },
-        { key: 'epicerie', label: '🥫 Épicerie & Sec' },
-        { key: 'surgeles', label: '🧊 Surgelés' },
-        { key: 'hygiene',  label: '🧻 Hygiène & Entretien' },
-        { key: 'autres',   label: '🛒 Autres Rayons' }
-    ];
-    const categoryLabel = key => (CATEGORIES.find(c => c.key === key) || {}).label || '';
-
-    // Mots-clés de secours (sans accents), pour les articles absents du glossaire ou sans rayon
-    const CATEGORY_KEYWORDS = {
-        surgeles: ['surgele', 'glace', 'congele', 'קפוא', 'גלידה'],
-        epicerie: ['moutarde', 'pate', 'riz', 'farine', 'sucre', 'huile', 'cracotte', 'cracker', 'conserve', 'sauce', 'cafe', 'the', 'chocolat', 'gateau', 'pain',
-                   'פסטה', 'אורז', 'קמח', 'סוכר', 'שמן', 'רוטב', 'קפה', 'תה', 'שוקולד', 'עוגיות', 'לחם', 'חומוס', 'טחינה', 'עדשים', 'שימורים', 'חרדל', 'קורנפלקס', 'דגנים', 'פתיתים', 'קרקר', 'ממרח', 'מלח', 'תבלין'],
-        viande:   ['viande', 'poulet', 'boeuf', 'steak', 'jambon', 'poisson', 'saumon',
-                   'בשר', 'עוף', 'חזה', 'סטייק', 'נקניק', 'שניצל', 'דגים', 'דג', 'סלמון', 'טונה', 'בקר', 'הודו', 'כבד'],
-        frais:    ['lait', 'cottage', 'beurre', 'fromage', 'yaourt', 'creme', 'oeuf', 'mozzarella',
-                   'חלב', 'קוטג', 'גבינה', 'יוגורט', 'חמאה', 'שמנת', 'ביצים', 'ביצה', 'מוצרלה', 'לבנה', 'מעדן'],
-        fruits:   ['fruit', 'legume', 'avocat', 'tomate', 'pomme', 'banane', 'salade', 'carotte', 'oignon', 'citron', 'concombre', 'courgette',
-                   'עגבני', 'מלפפון', 'בצל', 'גזר', 'תפוח', 'בננה', 'אבוקדו', 'לימון', 'חסה', 'קישוא', 'תפוז', 'פלפל', 'שום', 'פטרוזיליה', 'כוסברה', 'ירקות', 'פירות'],
-        hygiene:  ['papier', 'savon', 'shampoing', 'lessive', 'dentifrice', 'eponge', 'sac',
-                   'נייר', 'סבון', 'שמפו', 'כביסה', 'משחת שיניים', 'ספוג', 'שקית', 'שקיות', 'מנקה', 'אקונומיקה', 'חיתולים', 'מגבון', 'מרכך']
-    };
-    const CATEGORY_ORDER = ['surgeles', 'epicerie', 'viande', 'frais', 'fruits', 'hygiene'];
-    const KEYWORDS_NORM = Object.fromEntries(Object.entries(CATEGORY_KEYWORDS).map(([k, list]) => [k, list.map(norm)]));
-
-    function keywordMatch(tokens, text, kw) {
-        if (kw.includes(' ')) return text.includes(kw);
-        if (HEBREW_RE.test(kw)) {
-            // Hébreu : préfixe « ה » toléré, pluriels gérés pour les mots courts
-            return tokens.some(tok => [tok, tok.startsWith('\u05d4') ? tok.slice(1) : tok]
-                .some(t => kw.length >= 4 ? t.includes(kw) : stemWord(t) === stemWord(kw)));
-        }
-        return tokens.some(tok => tok.startsWith(kw));   // français : début de mot (gère le pluriel)
+    // Les rayons viennent de la base (onglet Glossaire) : aucune liste en dur dans le code.
+    function categoryParts(c) {
+        if (displayMode === 'he') return [c.name_he || c.name_fr];
+        if (displayMode === 'fr') return [c.name_fr || c.name_he];
+        return [c.name_fr, c.name_he].filter(Boolean);
     }
+    const categoryLabel = c => (c.icon ? c.icon + ' ' : '') + categoryParts(c).join(' · ');
+    const categoryLabelHTML = c => esc(c.icon ? c.icon + ' ' : '') + categoryParts(c).map(p => `<bdi>${esc(p)}</bdi>`).join(' · ');
 
-    // Rayon d'un article : 1) rayon du glossaire (valable dans les deux langues), 2) mots-clés
-    // appliqués au mot saisi ET à ses traductions du glossaire
+    // Rayon d'un article = rayon de son mot dans le glossaire (valable en français comme en hébreu)
     function getCategory(name) {
         const term = findTerm(name);
-        if (term && term.category) return term.category;
-        const candidates = [name, term && term.fr, term && term.he].filter(Boolean).map(norm);
-        for (const key of CATEGORY_ORDER) {
-            for (const text of candidates) {
-                const tokens = text.split(/[\s\-']+/).filter(Boolean);
-                if (KEYWORDS_NORM[key].some(kw => keywordMatch(tokens, text, kw))) return key;
-            }
-        }
-        return 'autres';
+        return term && term.category_id ? term.category_id : null;
     }
 
     let groupedView = false;
@@ -873,16 +918,93 @@
         renderShoppingList(shoppingCache);
     }
 
-    // Sélecteurs de rayon du glossaire (vide = automatique)
-    ['term-add-category', 'term-edit-category'].forEach(id => {
-        $(id).innerHTML = '<option value="">Rayon : automatique</option>' +
-            CATEGORIES.filter(c => c.key !== 'autres').map(c => `<option value="${c.key}">${c.label}</option>`).join('');
+    // Sélecteurs de rayon du glossaire (la valeur choisie est conservée)
+    function fillCategorySelects() {
+        ['term-add-category', 'term-edit-category'].forEach(id => {
+            const select = $(id);
+            const previous = select.value;
+            select.innerHTML = '<option value="">Rayon : aucun</option>' +
+                categoriesCache.map(c => `<option value="${c.id}">${esc(categoryLabel(c))}</option>`).join('');
+            select.value = previous;
+        });
+    }
+
+    // Gestion des rayons
+    function renderCategories() {
+        const last = categoriesCache.length - 1;
+        $('category-list').innerHTML = categoriesCache.length === 0
+            ? '<div class="list-group-item text-center text-muted py-2">Aucun rayon : tous les articles vont dans « Autres rayons ».</div>'
+            : categoriesCache.map((c, i) => `
+                <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                    <div>${esc(c.icon || '')} <strong>${c.name_fr ? `<bdi>${esc(c.name_fr)}</bdi>` : ''}</strong>
+                        ${c.name_fr && c.name_he ? '<span class="text-muted">·</span>' : ''}
+                        ${c.name_he ? `<bdi>${esc(c.name_he)}</bdi>` : ''}</div>
+                    <div class="d-flex gap-1 flex-shrink-0">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="moveCategory(${c.id}, -1)" ${i === 0 ? 'disabled' : ''} aria-label="Monter">▲</button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="moveCategory(${c.id}, 1)" ${i === last ? 'disabled' : ''} aria-label="Descendre">▼</button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="openCategoryModal(${c.id})">Modifier</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteCategory(${c.id})" aria-label="Supprimer">✕</button>
+                    </div>
+                </div>`).join('');
+    }
+
+    async function refreshAfterCategoryChange() {
+        await loadTerms();
+        rerenderAll();
+    }
+
+    async function moveCategory(id, direction) {
+        const ids = categoriesCache.map(c => c.id);
+        const from = ids.indexOf(id);
+        const to = from + direction;
+        if (from < 0 || to < 0 || to >= ids.length) return;
+        [ids[from], ids[to]] = [ids[to], ids[from]];
+        await api('/api/categories/reorder', 'POST', { ids });
+        await refreshAfterCategoryChange();
+    }
+
+    function openCategoryModal(id) {
+        const cat = categoriesCache.find(c => c.id === id);
+        if (!cat) return;
+        $('cat-edit-id').value = cat.id;
+        $('cat-edit-icon').value = cat.icon || '';
+        $('cat-edit-fr').value = cat.name_fr || '';
+        $('cat-edit-he').value = cat.name_he || '';
+        modal('categoryModal').show();
+    }
+
+    async function saveCategory() {
+        await api(`/api/categories/${$('cat-edit-id').value}`, 'PUT', {
+            icon: $('cat-edit-icon').value, name_fr: $('cat-edit-fr').value, name_he: $('cat-edit-he').value
+        });
+        modal('categoryModal').hide();
+        await refreshAfterCategoryChange();
+        showToast('Rayon mis à jour ✔');
+    }
+
+    async function deleteCategory(id) {
+        const cat = categoriesCache.find(c => c.id === id);
+        const count = termsCache.filter(t => t.category_id === id).length;
+        if (!confirm(`Supprimer le rayon "${cat ? categoryParts(cat)[0] : ''}" ?\n${count} mot(s) du glossaire n'auront plus de rayon (leurs articles iront dans « Autres rayons »).`)) return;
+        await api(`/api/categories/${id}`, 'DELETE');
+        await refreshAfterCategoryChange();
+    }
+
+    $('form-category').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await api('/api/categories', 'POST', {
+            icon: $('cat-add-icon').value, name_fr: $('cat-add-fr').value, name_he: $('cat-add-he').value
+        });
+        e.target.reset();
+        await refreshAfterCategoryChange();
+        showToast('Rayon ajouté ✔');
     });
 
     // ---------- STOCKS ----------
     async function loadInventory() {
-        const res = await fetch('/api/inventory');
-        inventoryCache = await res.json();
+        const loaded = await fetchJson('/api/inventory', null);
+        if (loaded === null) return;
+        inventoryCache = loaded;
         renderInventory();
         renderGlossary();
     }
@@ -916,6 +1038,7 @@
                     ${item.quantity ? '- <bdi>' + esc(item.quantity) + '</bdi>' : ''}
                     ${item.expiry_date ? `<small class="text-muted d-block ms-1">Péremption : ${esc(item.expiry_date)}</small>` : ''}
                     ${recipeInfo}
+                    ${item.item_type !== 'recipe' ? `<span class="d-block mt-1">${aisleTag('inventory', item.id, item.name)}</span>` : ''}
                 </div>
                 <div class="d-flex gap-1">
                     <button class="btn btn-sm btn-outline-primary" onclick="editInventory(${item.id})">Modifier</button>
@@ -1012,8 +1135,9 @@
 
     // ---------- RECETTES ----------
     async function loadRecipes() {
-        const res = await fetch('/api/recipes');
-        recipesCache = await res.json();
+        const loaded = await fetchJson('/api/recipes', null);
+        if (loaded === null) return;
+        recipesCache = loaded;
         renderRecipes();
         renderGlossary();
     }
@@ -1105,7 +1229,43 @@
     // ---------- GLOSSAIRE ----------
     let todoNames = [];
 
+    function categoryShortLabel(c) {
+        const name = displayMode === 'he' ? (c.name_he || c.name_fr) : (c.name_fr || c.name_he);
+        return (c.icon ? c.icon + ' ' : '') + name;
+    }
+
+    // Pastille d'un article : son rayon, « Sans rayon » (mot du glossaire sans rayon) ou « Hors glossaire »
+    function aisleTag(kind, id, name) {
+        const term = findTerm(name);
+        let css, label, title;
+        if (!term) {
+            css = 'unknown'; label = 'Hors glossaire'; title = 'Ajouter cet article au glossaire';
+        } else {
+            const cat = categoriesCache.find(c => c.id === term.category_id);
+            if (cat) { css = 'ok'; label = categoryShortLabel(cat); title = 'Modifier le rayon'; }
+            else { css = 'none'; label = 'Sans rayon'; title = 'Choisir un rayon'; }
+        }
+        return `<button type="button" class="aisle-tag ${css}" title="${title}" aria-label="${title}" onclick="openTermForItem('${kind}', ${id})"><bdi>${esc(label)}</bdi></button>`;
+    }
+
+    // Ouvre la fenêtre du glossaire pour cet article (mot existant, ou nouveau mot pré-rempli)
+    function openTermForItem(kind, id) {
+        const item = (kind === 'shopping' ? shoppingCache : inventoryCache).find(i => i.id === id);
+        if (!item) return;
+        const term = findTerm(item.name);
+        if (term) openTermModal(term.id);
+        else openTermModal(null, undefined, item.name);
+    }
+
+    function termAisleBadge(t) {
+        const cat = categoriesCache.find(c => c.id === t.category_id);
+        return cat
+            ? `<span class="badge bg-light text-dark ms-1 fw-normal">${esc(categoryLabel(cat))}</span>`
+            : '<span class="badge bg-light text-muted ms-1 fw-normal">sans rayon</span>';
+    }
+
     function renderGlossary() {
+        renderCategories();
         const q = norm($('glossary-search').value);
         const rows = termsCache.filter(t => !q || norm(t.fr).includes(q) || norm(t.he).includes(q));
 
@@ -1123,7 +1283,7 @@
                         <span class="text-muted">·</span>
                         <span>${t.he ? `<bdi>${esc(t.he)}</bdi>` : '<span class="text-muted">—</span>'}</span>
                         ${incomplete ? '<span class="badge text-bg-warning ms-1">traduction manquante</span>' : ''}
-                        ${t.category ? `<span class="badge bg-light text-dark ms-1 fw-normal">${esc(categoryLabel(t.category))}</span>` : ''}
+                        ${termAisleBadge(t)}
                     </div>
                     <div class="d-flex gap-1 flex-shrink-0">
                         <button class="btn btn-sm btn-outline-primary" onclick="openTermModal(${t.id})">Modifier</button>
@@ -1150,16 +1310,16 @@
 
     $('glossary-search').addEventListener('input', renderGlossary);
 
-    function openTermModal(id, todoIndex) {
+    function openTermModal(id, todoIndex, prefillName) {
         const term = id ? termsCache.find(t => t.id === id) : null;
         $('term-modal-title').innerText = term ? 'Modifier le mot' : 'Ajouter au glossaire';
         $('term-edit-id').value = term ? term.id : '';
         $('term-edit-fr').value = term ? (term.fr || '') : '';
         $('term-edit-he').value = term ? (term.he || '') : '';
-        $('term-edit-category').value = term ? (term.category || '') : '';
-        if (!term && todoIndex !== undefined) {
+        $('term-edit-category').value = term && term.category_id ? String(term.category_id) : '';
+        if (!term && (todoIndex !== undefined || prefillName !== undefined)) {
             // Le mot déjà connu va dans sa langue ; il reste à saisir l'autre
-            const name = todoNames[todoIndex];
+            const name = prefillName !== undefined ? prefillName : todoNames[todoIndex];
             $(HEBREW_RE.test(name) ? 'term-edit-he' : 'term-edit-fr').value = name;
         }
         modal('termModal').show();
@@ -1167,7 +1327,7 @@
 
     async function saveTerm() {
         const id = $('term-edit-id').value;
-        const body = { fr: $('term-edit-fr').value, he: $('term-edit-he').value, category: $('term-edit-category').value };
+        const body = { fr: $('term-edit-fr').value, he: $('term-edit-he').value, category_id: $('term-edit-category').value || null };
         if (id) await api(`/api/terms/${id}`, 'PUT', body);
         else await api('/api/terms', 'POST', body);
         modal('termModal').hide();
@@ -1186,7 +1346,7 @@
 
     $('form-term').addEventListener('submit', async (e) => {
         e.preventDefault();
-        await api('/api/terms', 'POST', { fr: $('term-add-fr').value, he: $('term-add-he').value, category: $('term-add-category').value });
+        await api('/api/terms', 'POST', { fr: $('term-add-fr').value, he: $('term-add-he').value, category_id: $('term-add-category').value || null });
         e.target.reset();
         await loadTerms();
         rerenderAll();
@@ -1195,8 +1355,8 @@
 
     // ---------- BUDGET ----------
     async function loadExpenses() {
-        const res = await fetch('/api/expenses');
-        const items = await res.json();
+        const items = await fetchJson('/api/expenses', null);
+        if (items === null) return;
         expenseCache = items;
         const list = $('expense-list');
         list.innerHTML = '';
@@ -1248,7 +1408,7 @@
     }
 
     // ---------- INITIALISATION ----------
-    loadTerms().then(() => {
+    loadTerms().catch(e => console.error(e)).finally(() => {
         loadShopping();
         loadRecipes();
         loadInventory();
